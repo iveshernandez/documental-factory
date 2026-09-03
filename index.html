@@ -120,7 +120,7 @@ El pez que camina fuera del agua"></textarea>
           </div>
 
           <label>Modelo Gemini</label>
-          <input id="geminiModel" value="gemini-2.5-flash" />
+          <input id="geminiModel" value="gemini-3.6-flash" />
 
           <div class="actions">
             <button class="secondary" id="saveKey" type="button">Guardar API</button>
@@ -159,7 +159,7 @@ const rememberKeyInput = $('#rememberKey');
 const apiStatus = $('#apiStatus');
 
 geminiKeyInput.value = localStorage.getItem('documental_gemini_key') || '';
-geminiModelInput.value = localStorage.getItem('documental_gemini_model') || 'gemini-2.5-flash';
+geminiModelInput.value = localStorage.getItem('documental_gemini_model') || 'gemini-3.6-flash';
 
 let stopRequested = false;
 
@@ -176,7 +176,7 @@ $('#saveKey').onclick = () => {
     apiStatus.className = 'tiny err';
     return;
   }
-  localStorage.setItem('documental_gemini_model', geminiModelInput.value.trim() || 'gemini-2.5-flash');
+  localStorage.setItem('documental_gemini_model', geminiModelInput.value.trim() || 'gemini-3.6-flash');
   if (rememberKeyInput.checked) {
     localStorage.setItem('documental_gemini_key', key);
     apiStatus.textContent = 'API guardada solamente en este navegador.';
@@ -273,7 +273,7 @@ async function runDemo(job){
 
 async function callGemini(prompt){
   const key = geminiKeyInput.value.trim();
-  const model = (geminiModelInput.value.trim() || 'gemini-2.5-flash').replace(/^models\//,'');
+  const model = (geminiModelInput.value.trim() || 'gemini-3.6-flash').replace(/^models\//,'');
   if(!key) throw new Error('Falta la API Key de Gemini.');
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
