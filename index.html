@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <title>Documental Factory</title>
+  <style>
+    :root{
+      --bg:#08111f;--panel:#0f1b2d;--panel2:#14233a;--text:#f8fafc;
+      --muted:#91a4bd;--line:#263853;--accent:#37d67a;--warn:#f6c34a;
+      --danger:#ff6464;--radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:
+      radial-gradient(circle at 20% -20%,#1c3659 0,transparent 36%),var(--bg);color:var(--text)}
+    .wrap{max-width:1180px;margin:auto;padding:28px}
+    h1{margin:0 0 6px;font-size:clamp(28px,4vw,48px)}
+    .sub{color:var(--muted);margin:0 0 24px}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+    .card{background:rgba(15,27,45,.92);border:1px solid var(--line);border-radius:var(--radius);padding:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.22)}
+    label{display:block;color:#cbd5e1;font-size:13px;font-weight:700;margin:13px 0 7px}
+    textarea,input,select{width:100%;background:#0a1424;color:var(--text);border:1px solid var(--line);
+      border-radius:12px;padding:12px 13px;outline:none}
+    textarea{min-height:150px;resize:vertical;line-height:1.45}
+    input:focus,select:focus,textarea:focus{border-color:#4f719f}
+    .row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    button{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer}
+    .primary{background:var(--accent);color:#06150c}
+    .secondary{background:#233552;color:#fff}
+    .danger{background:#4a2025;color:#ffc4c8}
+    .tiny{font-size:12px;color:var(--muted)}
+    .statusbox{display:grid;gap:10px;margin-top:12px}
+    .job{background:#0a1424;border:1px solid var(--line);border-radius:14px;padding:13px}
+    .jobtop{display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .topic{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .badge{font-size:11px;border:1px solid #365172;border-radius:999px;padding:5px 8px;color:#c6d6ea}
+    .bar{height:8px;background:#16253a;border-radius:999px;overflow:hidden;margin-top:10px}
+    .fill{height:100%;width:0;background:linear-gradient(90deg,#37d67a,#69e5a1);transition:width .4s}
+    .steps{font-size:12px;color:var(--muted);margin-top:8px}
+    .ok{color:#7ef0a9}.err{color:#ff8a8a}.warn{color:#f8d879}
+    .preview{aspect-ratio:9/16;max-height:600px;background:#050a12;border:1px solid var(--line);border-radius:16px;
+      display:grid;place-items:center;overflow:hidden;margin:auto;position:relative}
+    .preview video{width:100%;height:100%;object-fit:contain}
+    .placeholder{text-align:center;color:#667994;padding:25px}
+    .settings{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+    details summary{cursor:pointer;color:#d9e5f4;font-weight:800}
+    .switch{display:flex;align-items:center;gap:10px;margin-top:12px}
+    .switch input{width:auto}
+    @media(max-width:850px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Documental Factory</h1>
+  <p class="sub">Generador por cola para microdocumentales verticales estilo viral. Preparado para GitHub Pages.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2 style="margin-top:0">Crear documentales</h2>
+      <label>Temas — uno por línea</label>
+      <textarea id="topics" placeholder="El animal que puede dormir mientras vuela
+La criatura que sobrevive congelada
+El pez que camina fuera del agua"></textarea>
+
+      <div class="row">
+        <div>
+          <label>Duración</label>
+          <select id="duration">
+            <option value="30">30 segundos</option>
+            <option value="45">45 segundos</option>
+            <option value="60">60 segundos</option>
+          </select>
+        </div>
+        <div>
+          <label>Formato</label>
+          <select id="format">
+            <option value="nature">Naturaleza</option>
+            <option value="mystery">Misterio</option>
+            <option value="history">Historia</option>
+            <option value="science">Ciencia</option>
+            <option value="technology">Tecnología</option>
+          </select>
+        </div>
+        <div>
+          <label>Voz</label>
+          <select id="voice">
+            <option value="male">Masculina documental</option>
+            <option value="female">Femenina documental</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="switch">
+        <input id="autoDownload" type="checkbox" checked>
+        <label for="autoDownload" style="margin:0">Descargar automáticamente al terminar</label>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="start">▶ Generar automáticamente</button>
+        <button class="secondary" id="demo">⚡ Probar modo demo</button>
+        <button class="danger" id="clear">Limpiar cola</button>
+      </div>
+
+      <div class="settings">
+        <details>
+          <summary>Configuración del backend</summary>
+          <label>URL del backend seguro</label>
+          <input id="backend" placeholder="https://tu-backend.com" />
+          <p class="tiny">Nunca coloques claves privadas de IA dentro de este HTML. El frontend solo llama a tu backend.</p>
+          <button class="secondary" id="saveBackend">Guardar URL</button>
+        </details>
+      </div>
+
+      <div id="jobs" class="statusbox"></div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin-top:0">Resultado</h2>
+      <div class="preview" id="preview">
+        <div class="placeholder">
+          <div style="font-size:46px">🎬</div>
+          <strong>Tu MP4 aparecerá aquí</strong>
+          <div class="tiny" style="margin-top:7px">720 × 1280 · vertical · subtítulos quemados</div>
+        </div>
+      </div>
+      <div id="resultActions" class="actions"></div>
+      <p class="tiny">Flujo recomendado: Guion → Voz → Visuales → Subtítulos → Render MP4.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const jobsEl = $('#jobs');
+const backendInput = $('#backend');
+backendInput.value = localStorage.getItem('documental_backend') || '';
+
+let stopRequested = false;
+
+$('#saveBackend').onclick = () => {
+  localStorage.setItem('documental_backend', backendInput.value.trim().replace(/\/$/,''));
+  alert('Backend guardado.');
+};
+
+$('#clear').onclick = () => {
+  stopRequested = true;
+  jobsEl.innerHTML = '';
+  $('#resultActions').innerHTML = '';
+  $('#preview').innerHTML = '<div class="placeholder"><div style="font-size:46px">🎬</div><strong>Tu MP4 aparecerá aquí</strong></div>';
+};
+
+function addJob(topic){
+  const id = crypto.randomUUID();
+  const el = document.createElement('div');
+  el.className = 'job';
+  el.dataset.id = id;
+  el.innerHTML = `
+    <div class="jobtop">
+      <div class="topic" title="${escapeHtml(topic)}">${escapeHtml(topic)}</div>
+      <span class="badge">EN COLA</span>
+    </div>
+    <div class="bar"><div class="fill"></div></div>
+    <div class="steps">Esperando…</div>`;
+  jobsEl.appendChild(el);
+  return {id,topic,el};
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function setJob(job, pct, step, state='working'){
+  job.el.querySelector('.fill').style.width = pct+'%';
+  job.el.querySelector('.steps').textContent = step;
+  const badge = job.el.querySelector('.badge');
+  badge.textContent = state==='done'?'LISTO':state==='error'?'ERROR':'PROCESANDO';
+  badge.className = 'badge ' + (state==='done'?'ok':state==='error'?'err':'');
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+async function startQueue(demoMode=false){
+  stopRequested = false;
+  const topics = $('#topics').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(!topics.length){alert('Escribe al menos un tema.');return}
+  if(!demoMode && !backendInput.value.trim()){
+    alert('Configura primero la URL de tu backend o usa el modo demo.');
+    return;
+  }
+
+  for(const topic of topics){
+    if(stopRequested) break;
+    const job = addJob(topic);
+    try{
+      if(demoMode) await runDemo(job);
+      else await runReal(job);
+    }catch(err){
+      console.error(err);
+      setJob(job,100,'Error: '+err.message,'error');
+    }
+  }
+}
+
+async function runDemo(job){
+  const stages = [
+    [12,'Investigando tema…'],[28,'Escribiendo guion viral…'],[44,'Generando narración…'],
+    [60,'Preparando escenas…'],[76,'Sincronizando subtítulos…'],[90,'Renderizando video…'],[100,'Documental terminado.']
+  ];
+  for(const [pct,txt] of stages){ if(stopRequested) return; setJob(job,pct,txt,pct===100?'done':'working'); await sleep(650); }
+  const blob = new Blob([`DEMO - ${job.topic}`],{type:'text/plain'});
+  showResult(URL.createObjectURL(blob), job.topic, true);
+}
+
+async function runReal(job){
+  const base = backendInput.value.trim().replace(/\/$/,'');
+  setJob(job,5,'Enviando trabajo al backend…');
+  const create = await fetch(base+'/api/jobs',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      topic:job.topic,
+      duration:Number($('#duration').value),
+      category:$('#format').value,
+      voice:$('#voice').value,
+      aspectRatio:'9:16',
+      width:720,height:1280,
+      subtitles:true
+    })
+  });
+  if(!create.ok) throw new Error('No se pudo crear el trabajo');
+  const data = await create.json();
+  const jobId = data.id;
+  if(!jobId) throw new Error('El backend no devolvió un ID');
+
+  while(!stopRequested){
+    await sleep(2500);
+    const r = await fetch(base+'/api/jobs/'+encodeURIComponent(jobId));
+    if(!r.ok) throw new Error('No se pudo consultar el progreso');
+    const st = await r.json();
+    setJob(job, Math.max(5,Math.min(100,st.progress||0)), st.message||'Procesando…',
+      st.status==='done'?'done':st.status==='error'?'error':'working');
+
+    if(st.status==='error') throw new Error(st.error||'Falló la generación');
+    if(st.status==='done'){
+      if(!st.videoUrl) throw new Error('Terminó pero no hay videoUrl');
+      showResult(st.videoUrl, job.topic, false);
+      if($('#autoDownload').checked) download(st.videoUrl, safeName(job.topic)+'.mp4');
+      break;
+    }
+  }
+}
+function safeName(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,70)||'documental'}
+function download(url,name){
+  const a=document.createElement('a');a.href=url;a.download=name;a.target='_blank';document.body.appendChild(a);a.click();a.remove();
+}
+function showResult(url,topic,isDemo){
+  const preview = $('#preview');
+  const actions = $('#resultActions');
+  if(isDemo){
+    preview.innerHTML = `<div class="placeholder"><div style="font-size:46px">✅</div><strong>Demo completada</strong><div class="tiny">Conecta el backend para generar MP4 reales.</div></div>`;
+    actions.innerHTML = '';
+    return;
+  }
+  preview.innerHTML = `<video controls playsinline src="${url}"></video>`;
+  actions.innerHTML = `<button class="primary" id="downloadResult">⬇ Descargar MP4</button>`;
+  $('#downloadResult').onclick = ()=>download(url,safeName(topic)+'.mp4');
+}
+
+$('#start').onclick = ()=>startQueue(false);
+$('#demo').onclick = ()=>startQueue(true);
+</script>
+</body>
+</html>
