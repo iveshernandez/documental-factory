@@ -55,7 +55,7 @@
 <body>
 <div class="wrap">
   <h1>Documental Factory</h1>
-  <p class="sub">Generador por cola para microdocumentales verticales estilo viral. Preparado para GitHub Pages.</p>
+  <p class="sub">Generador por cola para microdocumentales verticales estilo viral. Gemini BYOK: cada usuario puede usar su propia API.</p>
 
   <div class="grid">
     <section class="card">
@@ -105,12 +105,30 @@ El pez que camina fuera del agua"></textarea>
       </div>
 
       <div class="settings">
-        <details>
-          <summary>Configuración del backend</summary>
-          <label>URL del backend seguro</label>
-          <input id="backend" placeholder="https://tu-backend.com" />
-          <p class="tiny">Nunca coloques claves privadas de IA dentro de este HTML. El frontend solo llama a tu backend.</p>
-          <button class="secondary" id="saveBackend">Guardar URL</button>
+        <details open>
+          <summary>Configuración de IA — Google Gemini</summary>
+
+          <label>API Key de Gemini</label>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+            <input id="geminiKey" type="password" autocomplete="off" placeholder="Pega aquí tu API Key" />
+            <button class="secondary" id="toggleKey" type="button">Mostrar</button>
+          </div>
+
+          <div class="switch">
+            <input id="rememberKey" type="checkbox" checked>
+            <label for="rememberKey" style="margin:0">Guardar esta API solamente en este dispositivo</label>
+          </div>
+
+          <label>Modelo Gemini</label>
+          <input id="geminiModel" value="gemini-2.5-flash" />
+
+          <div class="actions">
+            <button class="secondary" id="saveKey" type="button">Guardar API</button>
+            <button class="secondary" id="testKey" type="button">Probar conexión</button>
+            <button class="danger" id="deleteKey" type="button">Eliminar API</button>
+          </div>
+
+          <p id="apiStatus" class="tiny">La API no se sube a GitHub. Si eliges guardarla, se almacena en el navegador mediante localStorage.</p>
         </details>
       </div>
 
@@ -127,7 +145,7 @@ El pez que camina fuera del agua"></textarea>
         </div>
       </div>
       <div id="resultActions" class="actions"></div>
-      <p class="tiny">Flujo recomendado: Guion → Voz → Visuales → Subtítulos → Render MP4.</p>
+      <p class="tiny">Etapa actual: generación real de guiones con Gemini. Después conectaremos voz, visuales, subtítulos y render MP4.</p>
     </section>
   </div>
 </div>
@@ -135,14 +153,58 @@ El pez que camina fuera del agua"></textarea>
 <script>
 const $ = s => document.querySelector(s);
 const jobsEl = $('#jobs');
-const backendInput = $('#backend');
-backendInput.value = localStorage.getItem('documental_backend') || '';
+const geminiKeyInput = $('#geminiKey');
+const geminiModelInput = $('#geminiModel');
+const rememberKeyInput = $('#rememberKey');
+const apiStatus = $('#apiStatus');
+
+geminiKeyInput.value = localStorage.getItem('documental_gemini_key') || '';
+geminiModelInput.value = localStorage.getItem('documental_gemini_model') || 'gemini-2.5-flash';
 
 let stopRequested = false;
 
-$('#saveBackend').onclick = () => {
-  localStorage.setItem('documental_backend', backendInput.value.trim().replace(/\/$/,''));
-  alert('Backend guardado.');
+$('#toggleKey').onclick = () => {
+  const visible = geminiKeyInput.type === 'text';
+  geminiKeyInput.type = visible ? 'password' : 'text';
+  $('#toggleKey').textContent = visible ? 'Mostrar' : 'Ocultar';
+};
+
+$('#saveKey').onclick = () => {
+  const key = geminiKeyInput.value.trim();
+  if (!key) {
+    apiStatus.textContent = 'Escribe una API Key primero.';
+    apiStatus.className = 'tiny err';
+    return;
+  }
+  localStorage.setItem('documental_gemini_model', geminiModelInput.value.trim() || 'gemini-2.5-flash');
+  if (rememberKeyInput.checked) {
+    localStorage.setItem('documental_gemini_key', key);
+    apiStatus.textContent = 'API guardada solamente en este navegador.';
+  } else {
+    localStorage.removeItem('documental_gemini_key');
+    apiStatus.textContent = 'API lista para esta sesión; no se guardó en el navegador.';
+  }
+  apiStatus.className = 'tiny ok';
+};
+
+$('#deleteKey').onclick = () => {
+  localStorage.removeItem('documental_gemini_key');
+  geminiKeyInput.value = '';
+  apiStatus.textContent = 'API eliminada de este navegador.';
+  apiStatus.className = 'tiny warn';
+};
+
+$('#testKey').onclick = async () => {
+  try {
+    apiStatus.textContent = 'Probando conexión con Gemini…';
+    apiStatus.className = 'tiny';
+    const text = await callGemini('Responde únicamente con: CONEXION OK');
+    apiStatus.textContent = text.toUpperCase().includes('CONEXION') ? '✅ Conexión correcta con Gemini.' : '✅ Gemini respondió correctamente.';
+    apiStatus.className = 'tiny ok';
+  } catch (e) {
+    apiStatus.textContent = '❌ ' + e.message;
+    apiStatus.className = 'tiny err';
+  }
 };
 
 $('#clear').onclick = () => {
@@ -181,8 +243,8 @@ async function startQueue(demoMode=false){
   stopRequested = false;
   const topics = $('#topics').value.split('\n').map(x=>x.trim()).filter(Boolean);
   if(!topics.length){alert('Escribe al menos un tema.');return}
-  if(!demoMode && !backendInput.value.trim()){
-    alert('Configura primero la URL de tu backend o usa el modo demo.');
+  if(!demoMode && !geminiKeyInput.value.trim()){
+    alert('Coloca primero tu API Key de Gemini en Configuración de IA.');
     return;
   }
 
@@ -209,42 +271,107 @@ async function runDemo(job){
   showResult(URL.createObjectURL(blob), job.topic, true);
 }
 
-async function runReal(job){
-  const base = backendInput.value.trim().replace(/\/$/,'');
-  setJob(job,5,'Enviando trabajo al backend…');
-  const create = await fetch(base+'/api/jobs',{
-    method:'POST',headers:{'Content-Type':'application/json'},
+async function callGemini(prompt){
+  const key = geminiKeyInput.value.trim();
+  const model = (geminiModelInput.value.trim() || 'gemini-2.5-flash').replace(/^models\//,'');
+  if(!key) throw new Error('Falta la API Key de Gemini.');
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+
+  const r = await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      topic:job.topic,
-      duration:Number($('#duration').value),
-      category:$('#format').value,
-      voice:$('#voice').value,
-      aspectRatio:'9:16',
-      width:720,height:1280,
-      subtitles:true
+      contents:[{role:'user',parts:[{text:prompt}]}],
+      generationConfig:{
+        temperature:0.85,
+        topP:0.95,
+        maxOutputTokens:2200
+      }
     })
   });
-  if(!create.ok) throw new Error('No se pudo crear el trabajo');
-  const data = await create.json();
-  const jobId = data.id;
-  if(!jobId) throw new Error('El backend no devolvió un ID');
 
-  while(!stopRequested){
-    await sleep(2500);
-    const r = await fetch(base+'/api/jobs/'+encodeURIComponent(jobId));
-    if(!r.ok) throw new Error('No se pudo consultar el progreso');
-    const st = await r.json();
-    setJob(job, Math.max(5,Math.min(100,st.progress||0)), st.message||'Procesando…',
-      st.status==='done'?'done':st.status==='error'?'error':'working');
+  let data = {};
+  try { data = await r.json(); } catch(e) {}
 
-    if(st.status==='error') throw new Error(st.error||'Falló la generación');
-    if(st.status==='done'){
-      if(!st.videoUrl) throw new Error('Terminó pero no hay videoUrl');
-      showResult(st.videoUrl, job.topic, false);
-      if($('#autoDownload').checked) download(st.videoUrl, safeName(job.topic)+'.mp4');
-      break;
-    }
+  if(!r.ok){
+    const msg = data?.error?.message || `Error HTTP ${r.status}`;
+    throw new Error(msg);
   }
+
+  const text = (data.candidates || [])
+    .flatMap(c => c.content?.parts || [])
+    .map(p => p.text || '')
+    .join('\n')
+    .trim();
+
+  if(!text) throw new Error('Gemini respondió sin texto.');
+  return text;
+}
+
+function buildScriptPrompt(topic){
+  const duration = Number($('#duration').value);
+  const category = $('#format').value;
+  const words = duration === 30 ? '75 a 95' : duration === 45 ? '110 a 135' : '145 a 175';
+
+  return `Actúa como guionista experto en microdocumentales virales para Reels y TikTok.
+
+TEMA: ${topic}
+CATEGORÍA: ${category}
+DURACIÓN OBJETIVO: ${duration} segundos
+LONGITUD: ${words} palabras aproximadamente.
+
+REGLAS:
+- Español natural y fácil de narrar.
+- No digas "en este video".
+- Empieza con un gancho muy fuerte en la primera frase.
+- Mantén curiosidad y tensión hasta el final.
+- Explica qué ocurre, cómo ocurre y por qué es sorprendente.
+- No inventes datos específicos si no estás seguro.
+- Termina con una última frase memorable.
+- Devuelve solamente el guion final, sin títulos, notas, listas, markdown ni explicaciones.`;
+}
+
+async function runReal(job){
+  setJob(job,12,'Generando guion documental real con Gemini…');
+
+  const script = await callGemini(buildScriptPrompt(job.topic));
+
+  setJob(job,100,'Guion generado correctamente.','done');
+  showScriptResult(script, job.topic);
+
+  // Guardamos el último guion para la siguiente etapa (voz).
+  localStorage.setItem('documental_last_script', script);
+  localStorage.setItem('documental_last_topic', job.topic);
+}
+
+function showScriptResult(script, topic){
+  const preview = $('#preview');
+  const actions = $('#resultActions');
+
+  preview.innerHTML = `
+    <div style="width:100%;height:100%;overflow:auto;padding:22px;text-align:left">
+      <div class="tiny" style="margin-bottom:8px">GUION GENERADO</div>
+      <strong style="display:block;margin-bottom:14px">${escapeHtml(topic)}</strong>
+      <div style="white-space:pre-wrap;line-height:1.55;color:#e5edf8">${escapeHtml(script)}</div>
+    </div>`;
+
+  actions.innerHTML = `
+    <button class="primary" id="copyScript">Copiar guion</button>
+    <button class="secondary" id="downloadScript">Descargar TXT</button>`;
+
+  $('#copyScript').onclick = async () => {
+    await navigator.clipboard.writeText(script);
+    $('#copyScript').textContent = '✓ Copiado';
+    setTimeout(()=>$('#copyScript').textContent='Copiar guion',1200);
+  };
+
+  $('#downloadScript').onclick = () => {
+    const blob = new Blob([script],{type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    download(url,safeName(topic)+'.txt');
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+  };
 }
 function safeName(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,70)||'documental'}
 function download(url,name){
