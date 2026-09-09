@@ -77,7 +77,7 @@
   </select></div>
 </div>
 <div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz del guion</button></div>
-<div id="ttsStatus" class="status mut">Motor Piper: ONNX se cargará por rutas locales /ort/ del mismo dominio.</div>
+<div id="ttsStatus" class="status mut">Motor Piper: ONNX se cargará desde URLs absolutas del mismo dominio de Vercel.</div>
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
 <div id="audioActions" class="actions"></div>
 </section></div>
@@ -179,15 +179,27 @@ async function ensurePiperVoice(voiceId){
     throw new Error('La versión de Piper cargada no expone TtsSession.');
   }
 
+  // Comprueba primero que Vercel realmente sirve el loader ONNX desde el mismo origen.
+  // Esto hace que el error sea claro ANTES de inicializar ONNX.
+  const ortProbe=window.location.origin+'/ort/ort-wasm-simd-threaded.mjs';
+  try{
+    const probe=await fetch(ortProbe,{cache:'no-store'});
+    if(!probe.ok) throw new Error('HTTP '+probe.status);
+  }catch(e){
+    throw new Error('No puedo acceder a ONNX desde '+ortProbe+'. Revisa vercel.json. '+(e?.message||e));
+  }
+
   // IMPORTANTE:
   // Estas rutas pertenecen al mismo dominio de Vercel.
   // vercel.json las redirige/proxy a los archivos oficiales correspondientes.
   const session=await tts.TtsSession.create({
     voiceId,
     wasmPaths:{
-      onnxWasm:'/ort/',
-      piperData:'/piper/piper_phonemize.data',
-      piperWasm:'/piper/piper_phonemize.wasm'
+      // IMPORTANT: full URLs, not /ort/. Piper is imported from esm.sh and
+      // relative paths can otherwise resolve against https://esm.sh.
+      onnxWasm:window.location.origin+'/ort/',
+      piperData:window.location.origin+'/piper/piper_phonemize.data',
+      piperWasm:window.location.origin+'/piper/piper_phonemize.wasm'
     },
     logger:(msg)=>console.log('[Piper]',msg)
   });
@@ -269,9 +281,11 @@ async function generateVoice(){
     return {blob,seconds};
   }catch(err){
     const raw=err?.message||String(err);
-    const friendly=/no available backend|initWasm|onnxruntime/i.test(raw)
-      ? 'Piper/ONNX no pudo iniciar. Verifica que Vercel haya desplegado también vercel.json. Detalle: '+raw
-      : raw;
+    const friendly=/https:\/\/esm\.sh\/ort\//i.test(raw)
+      ? 'Piper intentó resolver ONNX contra esm.sh. Esta versión usa URLs absolutas; haz Ctrl+F5 y confirma que Vercel desplegó el último index.html. Detalle: '+raw
+      : /no available backend|initWasm|onnxruntime/i.test(raw)
+        ? 'Piper/ONNX no pudo iniciar. Verifica vercel.json y abre diagnostico.html. Detalle: '+raw
+        : raw;
     ttsStatus('❌ '+friendly,'err');
     throw new Error(friendly);
   }
