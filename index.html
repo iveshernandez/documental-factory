@@ -1,19 +1,74 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documental Factory</title>
 <style>
-:root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
-</style></head><body><div class="w"><h1>Documental Factory</h1><div class="mut">Pega tu guion → Kokoro genera la voz → Gemini crea escenas → Pexels/Pixabay encuentran clips reales.</div>
-<div class="grid"><section class="card"><h2>1. Tu guion</h2><label>Guion completo</label><textarea id="script" placeholder="Pega aquí tu guion documental..."></textarea>
-<div class="row"><div><label>Duración</label><select id="duration"><option>30</option><option>45</option><option>60</option></select></div><div><label>Escenas</label><select id="count"><option>6</option><option selected>8</option><option>10</option><option>12</option></select></div></div>
-<div class="actions"><button class="pri" id="go">🎬 Analizar y buscar clips</button><button class="sec" id="demo">Demo</button></div><div id="status" class="status mut">Esperando un guion.</div></section>
+:root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
+</style></head><body><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT → título + guion → voz → escenas → música → render → descarga automática.</div>
+<div class="grid">
+<section class="card">
+  <h2>1. Subir guion .TXT</h2>
+  <p class="tiny">La primera línea será el título del video y también el nombre del archivo final. Todo lo demás será el guion.</p>
+
+  <label>Archivo .txt</label>
+  <input id="txtFile" type="file" accept=".txt,text/plain">
+
+  <div class="row">
+    <div>
+      <label>Título detectado</label>
+      <input id="videoTitle" type="text" readonly placeholder="Se tomará de la primera línea">
+    </div>
+    <div>
+      <label>Nombre de descarga</label>
+      <input id="downloadName" type="text" readonly placeholder="titulo-del-video.mp4">
+    </div>
+  </div>
+
+  <label>Guion detectado</label>
+  <textarea id="script" rows="10" placeholder="Aquí aparecerá el contenido del .txt después de la primera línea"></textarea>
+
+  <div class="row">
+    <div>
+      <label>Duración objetivo</label>
+      <select id="duration">
+        <option value="30" selected>30 segundos</option>
+        <option value="45">45 segundos</option>
+        <option value="60">60 segundos</option>
+      </select>
+    </div>
+    <div>
+      <label>Número de escenas</label>
+      <select id="sceneCount">
+        <option value="6">6</option>
+        <option value="8" selected>8</option>
+        <option value="10">10</option>
+        <option value="12">12</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="pri" id="autoCreate" disabled>⚡ CREAR VIDEO AUTOMÁTICAMENTE</button>
+  </div>
+  <div id="autoStatus" class="status mut">Sube un archivo .txt para comenzar.</div>
+  <div class="progress"><div id="autoBar"></div></div>
+</section>
+
 <section class="card"><h2>2. Tus APIs</h2><label>Gemini API</label><div class="api"><input id="gemini" type="password"><button class="sec show" data-id="gemini">Mostrar</button></div>
 <label>Pexels API</label><div class="api"><input id="pexels" type="password"><button class="sec show" data-id="pexels">Mostrar</button></div>
 <label>Pixabay API (opcional)</label><div class="api"><input id="pixabay" type="password"><button class="sec show" data-id="pixabay">Mostrar</button></div>
 <div class="actions"><button class="sec" id="save">Guardar APIs</button><button class="danger" id="erase">Eliminar</button></div><p class="tiny">Las claves se guardan solo en localStorage de este navegador. Cada usuario usa sus propias APIs.</p>
 <hr style="border:0;border-top:1px solid var(--l);margin:18px 0">
 <h2>3. Voz Kokoro local</h2>
-<p class="tiny">El modelo se descarga una sola vez y queda en caché cuando el navegador lo permite. Después arranca mucho más rápido.</p>
+<p class="tiny">El modelo se descarga una sola vez y queda en caché cuando el navegador lo permite. Después arranca mucho más rápido. Esta versión usa únicamente voces que tu motor Kokoro reconoce.</p>
 <div class="row">
-  <div><label>Voz</label><select id="voice"><option value="em_alex" selected>Alex — masculina español</option><option value="ef_dora">Dora — femenina español</option><option value="em_santa">Santa — masculina español</option></select></div>
+  <div><label>Voz</label><select id="voice">
+<option value="am_michael" selected>Michael — masculina documental</option>
+<option value="am_adam">Adam — masculina profunda</option>
+<option value="am_onyx">Onyx — masculina grave</option>
+<option value="am_liam">Liam — masculina natural</option>
+<option value="am_santa">Santa — masculina alternativa</option>
+<option value="af_nicole">Nicole — femenina documental</option>
+<option value="af_bella">Bella — femenina natural</option>
+<option value="af_sarah">Sarah — femenina clara</option>
+</select></div>
   <div><label>Velocidad</label><select id="speed"><option value="0.90">0.90x</option><option value="1" selected>1.00x</option><option value="1.05">1.05x</option><option value="1.10">1.10x</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz del guion</button></div>
@@ -63,7 +118,7 @@ async function loadKokoro(){
 
       ttsStatus('Kokoro cargado. Precalentando motor…');
       try{
-        await kokoroTTS.generate('Hola.',{voice:'em_alex',speed:1});
+        await kokoroTTS.generate('Hola.',{voice:'am_michael',speed:1});
       }catch(e){
         console.warn('Warmup:',e);
       }
@@ -375,7 +430,7 @@ async function createFinalVideo(){
     // ONE final download, automatically.
     const a=document.createElement('a');
     a.href=generatedUrl;
-    a.download='documental_final.mp4';
+    a.download=(window.documentalDownloadName||'documental_final.mp4');
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -384,6 +439,7 @@ async function createFinalVideo(){
     rs(`✅ Video terminado: 720×1280, 30 FPS, voz Kokoro y música documental. Descarga iniciada.`, 'ok');
 
     await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav','music.wav','documental_final.mp4']);
+    return true;
   }catch(err){
     console.error(err);
     rs('❌ '+(err?.message||err),'err');
@@ -392,6 +448,7 @@ async function createFinalVideo(){
   }
 }
 
+window.createDocumentalFinalVideo=createFinalVideo;
 R('#finalRender')?.addEventListener('click',createFinalVideo);
 
 // Preload FFmpeg only when the browser is idle, so Kokoro gets priority first.
@@ -416,4 +473,174 @@ async function clip(q,page=1){let k=$('#pexels').value.trim();if(k){try{let r=aw
 function render(s,c,i){let a=document.createElement('article');a.className='scene';a.dataset.q=s.query;a.dataset.page=1;if(c?.url)a.dataset.clipUrl=c.url;a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div><div class="body"><b>ESCENA ${i+1}</b><p class="narr">${e(s.narration)}</p><p class="q">🔎 ${e(s.query)}</p><p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p><button class="sec change">↻ Cambiar escena</button></div>`;$('#scenes').appendChild(a);a.querySelector('.change').onclick=async()=>{let b=a.querySelector('.change');b.disabled=true;b.textContent='Buscando...';let p=++a.dataset.page,c2=await clip(a.dataset.q,p);a.querySelector('.media').innerHTML=c2?`<video muted loop controls playsinline src="${e(c2.url)}"></video>`:'<span class="err">Sin otro clip</span>';if(c2?.url)a.dataset.clipUrl=c2.url;else delete a.dataset.clipUrl;a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';b.disabled=false;b.textContent='↻ Cambiar escena'}}
 async function go(){let s=$('#script').value.trim(),n=+$('#count').value,d=+$('#duration').value;if(!s)return st('Pega primero tu guion.','err');if(!$('#pexels').value.trim()&&!$('#pixabay').value.trim())return st('Falta Pexels o Pixabay API.','err');st('Gemini está dividiendo el guion...');let p=`Divide este guion en exactamente ${n} escenas visuales para ${d} segundos. Devuelve SOLO array JSON. Cada objeto: {"narration":"fragmento exacto o resumido","query":"busqueda visual EN INGLES de 2 a 6 palabras para encontrar metraje real"}. La query debe ser concreta y visible. GUION: ${s}`,arr=json(await ai(p));$('#scenes').innerHTML='';for(let i=0;i<arr.length;i++){st(`Buscando clip ${i+1} de ${arr.length}: ${arr[i].query}`);render(arr[i],await clip(arr[i].query),i)}st('✅ Escenas listas. Revisa y cambia las que quieras.','ok')}
 $('#go').onclick=()=>go().catch(x=>st('❌ '+x.message,'err'));$('#demo').onclick=()=>{$('#script').value='En las aguas heladas del Atlántico vive un animal que parece desafiar el tiempo. El tiburón de Groenlandia crece lentamente y puede vivir durante siglos. Se desplaza por un mundo oscuro y frío donde pocas criaturas sobreviven. Su extraordinaria longevidad lo convierte en uno de los vertebrados más longevos conocidos.';st('Guion demo colocado. Ahora pulsa Analizar y buscar clips.','ok')};
-</script></body></html>
+</script>
+<script>
+(function(){
+  const A=s=>document.querySelector(s);
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+  function safeFileName(name){
+    name=(name||'documental').trim();
+    name=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    name=name.replace(/[<>:"/\\|?*\x00-\x1F]/g,'');
+    name=name.replace(/\s+/g,' ').trim();
+    name=name.replace(/[. ]+$/g,'');
+    if(!name)name='documental';
+    return name.slice(0,120)+'.mp4';
+  }
+
+  function ast(text,cls='mut'){
+    const el=A('#autoStatus');
+    if(el){el.textContent=text;el.className='status '+cls;}
+  }
+  function abar(p){
+    const el=A('#autoBar');
+    if(el)el.style.width=Math.max(0,Math.min(100,p))+'%';
+  }
+
+  async function parseTxt(file){
+    const text=await file.text();
+    const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    const lines=clean.split('\n');
+    let firstIndex=lines.findIndex(x=>x.trim().length>0);
+    if(firstIndex<0)throw new Error('El archivo está vacío.');
+
+    const title=lines[firstIndex].trim();
+    const script=lines.slice(firstIndex+1).join('\n').trim();
+
+    if(!script)throw new Error('El .txt tiene título, pero no contiene guion después de la primera línea.');
+
+    A('#videoTitle').value=title;
+    A('#downloadName').value=safeFileName(title);
+    A('#script').value=script;
+    window.documentalVideoTitle=title;
+    window.documentalDownloadName=safeFileName(title);
+
+    A('#autoCreate').disabled=false;
+    ast('✅ TXT cargado. Listo para crear el video automáticamente.','ok');
+    abar(0);
+  }
+
+  A('#txtFile')?.addEventListener('change',async e=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    try{
+      if(!/\.txt$/i.test(file.name) && file.type!=='text/plain'){
+        throw new Error('Sube un archivo .txt.');
+      }
+      await parseTxt(file);
+    }catch(err){
+      A('#autoCreate').disabled=true;
+      ast('❌ '+(err?.message||err),'err');
+    }
+  });
+
+  async function runExistingSceneAnalysis(){
+    // Prefer the existing primary analysis/search button.
+    const candidates=[
+      '#go','#analyze','#searchClips','#createScenes',
+      'button[data-action="analyze"]'
+    ];
+    let btn=null;
+    for(const sel of candidates){
+      const x=A(sel);
+      if(x){btn=x;break;}
+    }
+    if(!btn){
+      btn=[...document.querySelectorAll('button')].find(b=>{
+        const t=(b.textContent||'').toLowerCase();
+        return t.includes('analizar') || (t.includes('buscar') && t.includes('clip'));
+      });
+    }
+    if(!btn)throw new Error('No encontré el botón interno para analizar el guion.');
+    btn.click();
+
+    // Wait until scene cards appear, or until an error text appears.
+    const start=Date.now();
+    while(Date.now()-start<180000){
+      const scenes=[...document.querySelectorAll('#scenes .scene')];
+      if(scenes.length>0 && scenes.every(x=>x.dataset.clipUrl || x.querySelector('video'))){
+        return scenes;
+      }
+      const statusText=[...document.querySelectorAll('.status')].map(x=>x.textContent||'').join(' ');
+      if(/❌|error|falló|falta gemini/i.test(statusText) && Date.now()-start>3000){
+        throw new Error('Falló la creación de escenas. Revisa el mensaje mostrado en la página.');
+      }
+      await wait(700);
+    }
+    throw new Error('La búsqueda de escenas tardó demasiado.');
+  }
+
+  async function autoCreateAll(){
+    const btn=A('#autoCreate');
+    if(btn.disabled)return;
+    btn.disabled=true;
+
+    try{
+      if(!A('#script')?.value.trim())throw new Error('Primero sube el archivo .txt.');
+
+      ast('1/4 Analizando guion y buscando clips…');
+      abar(8);
+
+      const scenes=await runExistingSceneAnalysis();
+      abar(42);
+
+      ast(`2/4 ${scenes.length} escenas listas. Generando voz Kokoro…`);
+      if(!window.documentalFactoryAudioBlob){
+        const result=await window.generateDocumentalVoice?.();
+        if(!window.documentalFactoryAudioBlob)throw new Error('Kokoro no pudo generar la voz.');
+      }
+      abar(60);
+
+      ast('3/4 Voz lista. Preparando render final con música documental…');
+      await wait(250);
+      abar(68);
+
+      if(typeof window.createDocumentalFinalVideo!=='function'){
+        throw new Error('El motor de render todavía no está disponible.');
+      }
+
+      const ok=await window.createDocumentalFinalVideo();
+      if(ok!==true){
+        // createDocumentalFinalVideo handles its own errors; give a useful fallback.
+        const txt=A('#renderStatus')?.textContent||'';
+        if(/❌/.test(txt))throw new Error(txt.replace(/^❌\s*/,''));
+      }
+
+      abar(100);
+      ast('✅ Video terminado y descargado automáticamente.','ok');
+    }catch(err){
+      console.error(err);
+      ast('❌ '+(err?.message||err),'err');
+    }finally{
+      btn.disabled=false;
+    }
+  }
+
+  A('#autoCreate')?.addEventListener('click',autoCreateAll);
+
+  // Hide the old manual workflow controls but keep them in the DOM for the automation.
+  window.addEventListener('load',()=>{
+    setTimeout(()=>{
+      const allButtons=[...document.querySelectorAll('button')];
+      allButtons.forEach(b=>{
+        const t=(b.textContent||'').toLowerCase();
+        if(
+          (t.includes('analizar') && !b.matches('#autoCreate')) ||
+          (t.includes('generar voz')) ||
+          (t.includes('crear y descargar video final'))
+        ){
+          b.classList.add('hiddenAuto');
+        }
+      });
+      // Hide manual voice/audio controls but leave status available.
+      const voice=A('#voice')?.closest('.row');
+      if(voice) voice.classList.add('hiddenAuto');
+      const audio=A('#audio'); if(audio) audio.classList.add('hiddenAuto');
+      const aa=A('#audioActions'); if(aa) aa.classList.add('hiddenAuto');
+    },300);
+  });
+})();
+</script>
+
+</body></html>
