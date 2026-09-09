@@ -51,7 +51,7 @@
 <div class="pipeline" id="pipeline">
   <div class="pipe" id="stepTxt"><span>1</span><div><b>TXT</b><small>Esperando archivo</small></div></div>
   <div class="pipe" id="stepScenes"><span>2</span><div><b>Escenas</b><small>En espera</small></div></div>
-  <div class="pipe" id="stepVoice"><span>3</span><div><b>Voz Kokoro</b><small>En espera</small></div></div>
+  <div class="pipe" id="stepVoice"><span>3</span><div><b>Voz Piper es_MX</b><small>En espera</small></div></div>
   <div class="pipe" id="stepRender"><span>4</span><div><b>Render</b><small>En espera</small></div></div>
   <div class="pipe" id="stepDone"><span>5</span><div><b>Descarga</b><small>En espera</small></div></div>
 </div>
@@ -65,23 +65,19 @@
 <label>Pixabay API (opcional)</label><div class="api"><input id="pixabay" type="password"><button class="sec show" data-id="pixabay">Mostrar</button></div>
 <div class="actions"><button class="sec" id="save">Guardar APIs</button><button class="danger" id="erase">Eliminar</button></div><p class="tiny">Las claves se guardan solo en localStorage de este navegador. Cada usuario usa sus propias APIs.</p>
 <hr style="border:0;border-top:1px solid var(--l);margin:18px 0">
-<h2>3. Voz Kokoro local</h2>
-<p class="tiny">El modelo se descarga una sola vez y queda en caché cuando el navegador lo permite. Después arranca mucho más rápido. Esta versión usa únicamente voces que tu motor Kokoro reconoce.</p>
+<h2>3. Voz Piper — español latino</h2>
+<p class="tiny">Usa voces Piper es_MX. La primera vez descarga el modelo de voz y luego queda guardado en el navegador cuando OPFS está disponible. No usa voces inglesas.</p>
 <div class="row">
   <div><label>Voz</label><select id="voice">
-<option value="am_michael" selected>Michael — masculina documental</option>
-<option value="am_adam">Adam — masculina profunda</option>
-<option value="am_onyx">Onyx — masculina grave</option>
-<option value="am_liam">Liam — masculina natural</option>
-<option value="am_santa">Santa — masculina alternativa</option>
-<option value="af_nicole">Nicole — femenina documental</option>
-<option value="af_bella">Bella — femenina natural</option>
-<option value="af_sarah">Sarah — femenina clara</option>
-</select></div>
-  <div><label>Velocidad</label><select id="speed"><option value="0.90">0.90x</option><option value="1" selected>1.00x</option><option value="1.05">1.05x</option><option value="1.10">1.10x</option></select></div>
+    <option value="es_MX-claude-high" selected>Claude — Español México · alta calidad</option>
+    <option value="es_MX-ald-medium">ALD — Español México · calidad media</option>
+  </select></div>
+  <div><label>Velocidad</label><select id="speed">
+    <option value="1" selected>1.00x</option>
+  </select></div>
 </div>
 <div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz del guion</button></div>
-<div id="ttsStatus" class="status mut">Motor Kokoro: se precalentará automáticamente al abrir la página.</div>
+<div id="ttsStatus" class="status mut">Motor Piper: el modelo es_MX se descargará automáticamente.</div>
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
 <div id="audioActions" class="actions"></div>
 </section></div>
@@ -102,89 +98,161 @@
 </section></div>
 
 <script type="module">
-let kokoroTTS=null;
-let kokoroLoading=null;
-
 const q=s=>document.querySelector(s);
+let piperModule=null;
+let piperLoading=null;
+let piperVoiceLoaded=null;
+
 function ttsStatus(text,cls='mut'){
   const el=q('#ttsStatus');
   if(el){el.textContent=text;el.className='status '+cls;}
+  const log=q('#liveLog');
+  if(log){
+    const t=new Date().toLocaleTimeString();
+    log.innerHTML+=`<div>${t} — ${String(text).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>`;
+    log.scrollTop=log.scrollHeight;
+  }
 }
 
-async function loadKokoro(){
-  if(kokoroTTS) return kokoroTTS;
-  if(kokoroLoading) return kokoroLoading;
+async function loadPiperModule(){
+  if(piperModule)return piperModule;
+  if(piperLoading)return piperLoading;
 
-  kokoroLoading=(async()=>{
+  piperLoading=(async()=>{
     try{
-      ttsStatus('Descargando/cargando Kokoro… la primera vez puede tardar.');
-      const { KokoroTTS } = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
-
-      kokoroTTS=await KokoroTTS.from_pretrained(
-        'onnx-community/Kokoro-82M-v1.0-ONNX',
-        {dtype:'q8',device:'wasm'}
-      );
-
-      ttsStatus('Kokoro cargado. Precalentando motor…');
-      try{
-        await kokoroTTS.generate('Hola.',{voice:'am_michael',speed:1});
-      }catch(e){
-        console.warn('Warmup:',e);
-      }
-
-      ttsStatus('✅ Kokoro listo y precalentado.','ok');
-      return kokoroTTS;
+      ttsStatus('Cargando motor Piper para español latino…');
+      // Browser-only Piper implementation, bundled as ESM.
+      piperModule=await import('https://esm.sh/@mintplex-labs/piper-tts-web@1.0.3?bundle');
+      ttsStatus('✅ Motor Piper listo.','ok');
+      return piperModule;
     }catch(err){
-      kokoroLoading=null;
-      ttsStatus('❌ '+(err?.message||err),'err');
+      piperLoading=null;
+      piperModule=null;
+      ttsStatus('❌ No se pudo cargar Piper: '+(err?.message||err),'err');
       throw err;
     }
   })();
 
-  return kokoroLoading;
+  return piperLoading;
+}
+
+async function ensurePiperVoice(voiceId){
+  const tts=await loadPiperModule();
+
+  // The library caches models in OPFS. Explicit download gives visible progress.
+  if(piperVoiceLoaded===voiceId)return tts;
+
+  // TtsSession is a singleton; reset it when changing voice so the selected
+  // Spanish model is actually reloaded instead of reusing the previous model.
+  try{
+    if(tts.TtsSession && tts.TtsSession._instance){
+      tts.TtsSession._instance=null;
+    }
+  }catch(_){}
+
+  ttsStatus('Preparando voz '+voiceId+'… la primera descarga puede ser de unos 60 MB.');
+
+  if(typeof tts.download==='function'){
+    await tts.download(voiceId,(progress)=>{
+      try{
+        const total=Number(progress?.total||0);
+        const loaded=Number(progress?.loaded||0);
+        if(total>0){
+          const pct=Math.max(0,Math.min(100,Math.round(loaded*100/total)));
+          ttsStatus(`Descargando voz español latino ${voiceId}: ${pct}%`);
+        }else{
+          ttsStatus(`Descargando voz español latino ${voiceId}…`);
+        }
+      }catch(_){}
+    });
+  }
+
+  piperVoiceLoaded=voiceId;
+  ttsStatus('✅ Voz Piper español latino preparada.','ok');
+  return tts;
+}
+
+async function getBlobSeconds(blob){
+  return await new Promise((resolve,reject)=>{
+    const u=URL.createObjectURL(blob);
+    const a=new Audio();
+    a.preload='metadata';
+    a.onloadedmetadata=()=>{
+      const d=a.duration;
+      URL.revokeObjectURL(u);
+      resolve(Number.isFinite(d)?d:null);
+    };
+    a.onerror=()=>{
+      URL.revokeObjectURL(u);
+      reject(new Error('No pude leer la duración del audio Piper.'));
+    };
+    a.src=u;
+  });
 }
 
 async function generateVoice(){
-  const text=q('#script')?.value?.trim();
-  if(!text){ttsStatus('Pega primero tu guion.','err');return;}
+  const text=(q('#script')?.value||'').trim();
+  if(!text)throw new Error('El guion está vacío.');
+
+  const voice=q('#voice')?.value||'es_MX-claude-high';
 
   try{
-    const tts=await loadKokoro();
-    const voice=q('#voice')?.value||'am_michael';
-    const speed=parseFloat(q('#speed')?.value||'1');
+    const tts=await ensurePiperVoice(voice);
+    ttsStatus('Generando narración en español latino con Piper…');
 
-    ttsStatus('Generando narración con Kokoro…');
+    const blob=await tts.predict(
+      {text,voiceId:voice},
+      (progress)=>{
+        try{
+          const total=Number(progress?.total||0);
+          const loaded=Number(progress?.loaded||0);
+          if(total>0){
+            const pct=Math.round(loaded*100/total);
+            ttsStatus(`Piper preparando modelo: ${pct}%`);
+          }
+        }catch(_){}
+      }
+    );
 
-    const audio=await tts.generate(text,{voice,speed});
-    const blob=audio.toBlob();
-    const url=URL.createObjectURL(blob);
-
-    const player=q('#audio');
-    if(player.dataset.url) URL.revokeObjectURL(player.dataset.url);
-    player.dataset.url=url;
-    player.src=url;
-    player.style.display='block';
-
-    let seconds=null;
-    if(audio.audio?.length && audio.sampling_rate){
-      seconds=(audio.audio.length/audio.sampling_rate).toFixed(1);
+    if(!(blob instanceof Blob) || !blob.size){
+      throw new Error('Piper no devolvió audio.');
     }
 
-    q('#audioActions').innerHTML='<button class="sec" id="downloadVoice">⬇ Descargar WAV</button>';
-    q('#downloadVoice').onclick=()=>{
-      const a=document.createElement('a');
-      a.href=url;
-      a.download='narracion_kokoro.wav';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    };
+    const url=URL.createObjectURL(blob);
+    const player=q('#audio');
+    if(player){
+      if(player.dataset.url)URL.revokeObjectURL(player.dataset.url);
+      player.dataset.url=url;
+      player.src=url;
+      player.style.display='block';
+    }
+
+    const seconds=await getBlobSeconds(blob).catch(()=>null);
+
+    const actions=q('#audioActions');
+    if(actions){
+      actions.innerHTML='<button class="sec" id="downloadVoice">⬇ Descargar WAV</button>';
+      q('#downloadVoice')?.addEventListener('click',()=>{
+        const a=document.createElement('a');
+        a.href=url;
+        a.download='narracion_piper_es_MX.wav';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    }
 
     window.documentalFactoryAudioBlob=blob;
-    window.documentalFactoryAudioMeta={voice,speed,seconds:seconds?Number(seconds):null};
+    window.documentalFactoryAudioMeta={
+      engine:'piper',
+      language:'es_MX',
+      voice,
+      speed:1,
+      seconds:seconds?Number(seconds):null
+    };
 
-    ttsStatus('✅ Voz generada'+(seconds?` — ${seconds} s`:'')+'.','ok');
-    return {blob,seconds:seconds?Number(seconds):null};
+    ttsStatus('✅ Voz Piper en español latino generada'+(seconds?` — ${seconds.toFixed(1)} s`:'')+'.','ok');
+    return {blob,seconds};
   }catch(err){
     ttsStatus('❌ '+(err?.message||err),'err');
     throw err;
@@ -192,20 +260,12 @@ async function generateVoice(){
 }
 
 window.generateDocumentalVoice=generateVoice;
-q('#makeVoice')?.addEventListener('click',generateVoice);
+q('#makeVoice')?.addEventListener('click',()=>generateVoice().catch(()=>{}));
 
-// Precalentamiento automático de Kokoro al abrir la página.
-// Arranca casi inmediatamente y vuelve a intentar una vez si hay un fallo temporal.
+// Preload only the lightweight JS engine. The ~60 MB voice is downloaded
+// when a TXT actually starts processing, avoiding unnecessary bandwidth.
 window.addEventListener('load',()=>{
-  const autoWarm = async()=>{
-    try{
-      await loadKokoro();
-    }catch(err){
-      console.warn('Primer precalentamiento falló. Reintentando…', err);
-      setTimeout(()=>loadKokoro().catch(()=>{}), 4000);
-    }
-  };
-  setTimeout(autoWarm, 250);
+  setTimeout(()=>loadPiperModule().catch(()=>{}),400);
 });
 </script>
 
@@ -471,7 +531,7 @@ async function createFinalVideo(){
 
     // Voice is created automatically if it doesn't exist yet.
     if(!window.documentalFactoryAudioBlob){
-      rs('1/5 Generando voz automáticamente con Kokoro…');
+      rs('1/5 Generando voz automáticamente con Piper español latino…');
       rb(5);
       const result=await window.generateDocumentalVoice?.();
       if(!window.documentalFactoryAudioBlob) throw new Error('No se pudo generar la voz.');
@@ -562,7 +622,7 @@ async function createFinalVideo(){
     a.remove();
 
     rb(100);
-    rs(`✅ Video terminado: 720×1280, 30 FPS, voz Kokoro y música documental. Descarga iniciada.`, 'ok');
+    rs(`✅ Video terminado: 720×1280, 30 FPS, voz Piper es_MX y música documental. Descarga iniciada.`, 'ok');
 
     await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav','music.wav','documental_final.mp4']);
     return true;
@@ -578,7 +638,7 @@ async function createFinalVideo(){
 window.createDocumentalFinalVideo=createFinalVideo;
 R('#finalRender')?.addEventListener('click',createFinalVideo);
 
-// Preload FFmpeg only when the browser is idle, so Kokoro gets priority first.
+// Preload FFmpeg only when the browser is idle, so Piper gets priority first.
 window.addEventListener('load',()=>{
   setTimeout(()=>{
     if('requestIdleCallback' in window){
@@ -772,13 +832,13 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   async function makeVoice(){
     step('stepVoice','active','Generando narración');
-    ast('2/4 Kokoro está generando la narración…');
+    ast('2/4 Piper está generando la narración en español latino…');
     abar(Math.max(22,parseFloat(A('#autoBar')?.style.width)||22));
     window.documentalFactoryAudioBlob=null;
     window.documentalFactoryAudioMeta=null;
-    if(typeof window.generateDocumentalVoice!=='function')throw Error('Motor Kokoro no disponible.');
+    if(typeof window.generateDocumentalVoice!=='function')throw Error('Motor Piper no disponible.');
     await window.generateDocumentalVoice();
-    if(!window.documentalFactoryAudioBlob)throw Error('Kokoro terminó sin crear audio.');
+    if(!window.documentalFactoryAudioBlob)throw Error('Piper terminó sin crear audio.');
     step('stepVoice','done',`Voz lista${window.documentalFactoryAudioMeta?.seconds?' · '+window.documentalFactoryAudioMeta.seconds+' s':''}`);
     abar(60);
     return window.documentalFactoryAudioBlob;
@@ -808,7 +868,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       if(!(A('#gemini')?.value||'').trim())throw Error('Falta Gemini API.');
       if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw Error('Falta Pexels o Pixabay API.');
 
-      // Start Kokoro voice and visual scene creation together.
+      // Start Piper voice and visual scene creation together.
       // This makes voice generation visibly active immediately and saves time.
       const voicePromise=makeVoice();
       const scenesPromise=makeScenes();
