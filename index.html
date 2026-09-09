@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">TTS build: Xenova MMS 2.17.2</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: MMS + títulos + subtítulos + música v3</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -86,14 +86,18 @@
 <div class="renderbox">
 <h2 style="margin-top:0">5. Render final</h2>
 <div class="row">
-  <div><label>Música</label><select id="musicStyle"><option value="documentary" selected>Documental cinematográfica</option><option value="nature">Naturaleza ambiental</option><option value="mystery">Misterio documental</option></select></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.08">8%</option><option value="0.12" selected>12%</option><option value="0.16">16%</option><option value="0.20">20%</option></select></div>
+  <div><label>Título en video</label><select id="titleOverlay"><option value="yes" selected>Mostrar al inicio</option><option value="no">No mostrar</option></select></div>
+  <div><label>Subtítulos</label><select id="subtitles"><option value="yes" selected>Activados</option><option value="no">Desactivados</option></select></div>
+</div>
+<div class="row">
+  <div><label>Música</label><select id="musicStyle"><option value="pixabay" selected>Pixabay documental — default</option><option value="generated">Generada localmente — respaldo</option></select></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.14">14%</option><option value="0.18" selected>18%</option><option value="0.22">22%</option><option value="0.28">28%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
 <div class="progress"><div id="renderBar"></div></div>
 <video id="finalPreview" class="finalvideo" controls playsinline></video>
-<p class="tiny">La música es generada localmente por el programa, sin usar una canción externa. El render se hace uno por uno para evitar que FFmpeg se bloquee.</p>
+<p class="tiny">La opción Pixabay usa <b>documentary_music.mp3</b> desde tu mismo proyecto. Si el archivo no existe, el programa usa automáticamente la música generada de respaldo. Título y subtítulos se incrustan como imagen para evitar problemas de fuentes en FFmpeg.</p>
 </div>
 </section></div>
 
@@ -565,6 +569,120 @@ async function clean(ffmpeg,names){
   for(const n of names){try{await ffmpeg.deleteFile(n);}catch(e){}}
 }
 
+
+function wrapCanvasText(ctx,text,maxWidth,maxLines=3){
+  const words=String(text||'').trim().split(/\s+/).filter(Boolean);
+  const lines=[]; let line='';
+  for(const word of words){
+    const test=line?line+' '+word:word;
+    if(ctx.measureText(test).width<=maxWidth){ line=test; }
+    else{
+      if(line)lines.push(line);
+      line=word;
+      if(lines.length>=maxLines-1)break;
+    }
+  }
+  if(line && lines.length<maxLines)lines.push(line);
+  if(words.length && lines.length){
+    const used=lines.join(' ').split(/\s+/).length;
+    if(used<words.length){
+      let last=lines[lines.length-1].replace(/[.,;:!?…-]+$/,'');
+      while(ctx.measureText(last+'…').width>maxWidth && last.length>4) last=last.slice(0,-1);
+      lines[lines.length-1]=last+'…';
+    }
+  }
+  return lines;
+}
+
+async function canvasPngBlob(draw){
+  const c=document.createElement('canvas'); c.width=720; c.height=1280;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  draw(ctx,c);
+  return await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('No pude crear overlay PNG.')),'image/png'));
+}
+
+async function makeTitleOverlay(title){
+  return await canvasPngBlob((ctx,c)=>{
+    const text=String(title||'').trim();
+    ctx.font='700 54px Arial, sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const lines=wrapCanvasText(ctx,text,620,3);
+    const lineH=66;
+    const h=Math.max(132,lines.length*lineH+58);
+    const x=42,y=80,w=c.width-84;
+    ctx.fillStyle='rgba(0,0,0,.58)';
+    roundRect(ctx,x,y,w,h,24); ctx.fill();
+    ctx.fillStyle='#ffffff';
+    ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=8;
+    lines.forEach((ln,i)=>ctx.fillText(ln,c.width/2,y+38+lineH*(i+.5),620));
+    ctx.shadowBlur=0;
+  });
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  const rr=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);ctx.arcTo(x+w,y,x+w,y+h,rr);ctx.arcTo(x+w,y+h,x,y+h,rr);
+  ctx.arcTo(x,y+h,x,y,rr);ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
+}
+
+function splitSubtitleText(text,maxChars=58){
+  const clean=String(text||'').replace(/\s+/g,' ').trim();
+  if(!clean)return [];
+  const sent=clean.match(/[^.!?¿¡]+[.!?]+|[^.!?¿¡]+$/g)||[clean];
+  const out=[];
+  for(let s of sent){
+    s=s.trim(); if(!s)continue;
+    if(s.length<=maxChars*2){out.push(s);continue;}
+    const words=s.split(/\s+/);let cur='';
+    for(const w of words){
+      const t=(cur+' '+w).trim();
+      if(t.length>maxChars*2 && cur){out.push(cur);cur=w;}else cur=t;
+    }
+    if(cur)out.push(cur);
+  }
+  return out.length?out:[clean];
+}
+
+async function makeSubtitleOverlay(text){
+  return await canvasPngBlob((ctx,c)=>{
+    ctx.font='700 46px Arial, sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    const lines=wrapCanvasText(ctx,text,630,3);
+    const lineH=56;
+    const h=Math.max(92,lines.length*lineH+38);
+    const y=c.height-h-95;
+    ctx.fillStyle='rgba(0,0,0,.68)';
+    roundRect(ctx,34,y,c.width-68,h,22);ctx.fill();
+    ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.95)';
+    ctx.fillStyle='#ffffff';
+    lines.forEach((ln,i)=>{
+      const yy=y+19+lineH*(i+.5);
+      ctx.strokeText(ln,c.width/2,yy,630);
+      ctx.fillText(ln,c.width/2,yy,630);
+    });
+  });
+}
+
+async function getDefaultMusic(total){
+  if(R('#musicStyle')?.value==='pixabay'){
+    try{
+      const r=await fetch('./documentary_music.mp3',{cache:'force-cache'});
+      if(r.ok){
+        const b=await r.blob();
+        if(b.size>20000){
+          rs('2/5 Música Pixabay cargada.');
+          return {blob:b,name:'music.mp3',external:true};
+        }
+      }
+    }catch(e){}
+    rs('2/5 No encontré documentary_music.mp3; usando música local de respaldo.');
+  }
+  return {blob:makeDocumentaryMusic(total,'documentary'),name:'music.wav',external:false};
+}
+
+
 async function createFinalVideo(){
   const btn=R('#finalRender');
   if(btn?.disabled)return false;
@@ -590,14 +708,15 @@ async function createFinalVideo(){
 
     rs('2/5 Preparando música documental…');
     rb(10);
-    const musicBlob=makeDocumentaryMusic(total,R('#musicStyle')?.value||'documentary');
+    const musicInfo=await getDefaultMusic(total);
+    const musicBlob=musicInfo.blob;
 
     rs('3/5 Cargando FFmpeg…');
     const ffmpeg=await loadFFmpeg();
     rb(15);
 
     await ffmpeg.writeFile('voice.wav',new Uint8Array(await voiceBlob.arrayBuffer()));
-    await ffmpeg.writeFile('music.wav',new Uint8Array(await musicBlob.arrayBuffer()));
+    await ffmpeg.writeFile(musicInfo.name,new Uint8Array(await musicBlob.arrayBuffer()));
 
     const durations=sceneDurations(total,sceneEls);
     const partNames=[];
@@ -615,16 +734,53 @@ async function createFinalVideo(){
       const clipBlob=await fetchBlob(el.dataset.clipUrl);
       await ffmpeg.writeFile(input,new Uint8Array(await clipBlob.arrayBuffer()));
 
-      const dur=Math.max(1.0,durations[i]).toFixed(3);
-      await ffmpeg.exec([
-        '-stream_loop','-1','-i',input,
-        '-t',dur,
-        '-vf','scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30,format=yuv420p',
-        '-an','-c:v','libx264','-preset','ultrafast','-crf','23',
-        '-movflags','+faststart',output
-      ]);
+      const durNum=Math.max(1.0,durations[i]);
+      const dur=durNum.toFixed(3);
+
+      const overlayInputs=[];
+      const overlayFiles=[];
+      const overlaySpecs=[];
+
+      if(i===0 && R('#titleOverlay')?.value!=='no'){
+        const titleBlob=await makeTitleOverlay(window.documentalVideoTitle||R('#videoTitle')?.value||'');
+        const f=`title_${i}.png`;
+        await ffmpeg.writeFile(f,new Uint8Array(await titleBlob.arrayBuffer()));
+        overlayFiles.push(f); overlayInputs.push('-i',f);
+        overlaySpecs.push({fileIndex:1,start:0,end:Math.min(4.8,durNum)});
+      }
+
+      if(R('#subtitles')?.value!=='no'){
+        const chunks=splitSubtitleText(el.dataset.narration||el.querySelector('.narr')?.textContent||'');
+        const each=durNum/Math.max(1,chunks.length);
+        for(let j=0;j<chunks.length;j++){
+          const subBlob=await makeSubtitleOverlay(chunks[j]);
+          const f=`sub_${i}_${j}.png`;
+          await ffmpeg.writeFile(f,new Uint8Array(await subBlob.arrayBuffer()));
+          overlayFiles.push(f); overlayInputs.push('-i',f);
+          overlaySpecs.push({fileIndex:overlaySpecs.length+1,start:j*each,end:Math.min(durNum,(j+1)*each)});
+        }
+      }
+
+      const filters=['[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30,format=yuv420p[v0]'];
+      let prev='v0';
+      overlaySpecs.forEach((o,k)=>{
+        const next='v'+(k+1);
+        filters.push(`[${prev}][${o.fileIndex}:v]overlay=0:0:enable='between(t,${o.start.toFixed(3)},${o.end.toFixed(3)})':eof_action=repeat[${next}]`);
+        prev=next;
+      });
+
+      const args=['-stream_loop','-1','-i',input,...overlayInputs,'-t',dur];
+      if(overlaySpecs.length){
+        args.push('-filter_complex',filters.join(';'),'-map',`[${prev}]`);
+      }else{
+        args.push('-vf','scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30,format=yuv420p');
+      }
+      args.push('-an','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart',output);
+
+      await ffmpeg.exec(args);
 
       try{await ffmpeg.deleteFile(input);}catch(e){}
+      for(const f of overlayFiles){try{await ffmpeg.deleteFile(f);}catch(e){}}
       await sleep(20);
     }
 
@@ -639,11 +795,11 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.12);
+    const musicVol=Number(R('#musicVol')?.value||0.18);
     await ffmpeg.exec([
-      '-i','joined.mp4','-i','voice.wav','-i','music.wav',
+      '-i','joined.mp4','-i','voice.wav','-stream_loop','-1','-i',musicInfo.name,
       '-filter_complex',
-      `[1:a]volume=1.0[voice];[2:a]volume=${musicVol}[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[a]`,
+      `[1:a]volume=1.0[voice];[2:a]volume=${musicVol},atrim=0:${total.toFixed(3)},afade=t=in:st=0:d=1.0,afade=t=out:st=${Math.max(0,total-1.2).toFixed(3)}:d=1.2[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=1:normalize=0[a]`,
       '-map','0:v:0','-map','[a]',
       '-c:v','copy','-c:a','aac','-b:a','192k',
       '-shortest','-movflags','+faststart','documental_final.mp4'
@@ -669,9 +825,9 @@ async function createFinalVideo(){
     a.remove();
 
     rb(100);
-    rs(`✅ Video terminado: 720×1280, 30 FPS, voz Transformers.js y música documental. Descarga iniciada.`, 'ok');
+    rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz y música documental. Descarga iniciada.`, 'ok');
 
-    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav','music.wav','documental_final.mp4']);
+    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'documental_final.mp4']);
     return true;
   }catch(err){
     console.error(err);
@@ -737,7 +893,7 @@ async function ai(prompt){
 }
 function json(t){t=t.replace(/```json|```/gi,'').trim();let a=t.indexOf('['),b=t.lastIndexOf(']');if(a<0||b<0)throw Error('Gemini no devolvió JSON válido.');return JSON.parse(t.slice(a,b+1))}
 async function clip(q,page=1){let k=($('#pexels')?.value||'').trim();if(k){try{let r=await fetch(`https://api.pexels.com/v1/videos/search?query=${encodeURIComponent(q)}&orientation=portrait&per_page=12&page=${page}`,{headers:{Authorization:k}});if(r.ok){let d=await r.json(),v=d.videos?.[Math.min(page-1,(d.videos?.length||1)-1)];if(v){let f=(v.video_files||[]).filter(x=>x.link).sort((a,b)=>Math.abs((a.width||720)-720)-Math.abs((b.width||720)-720))[0];if(f)return{url:f.link,provider:'Pexels'}}}}catch(x){}}k=($('#pixabay')?.value||'').trim();if(k){try{let r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&per_page=10&page=${page}&safesearch=true`);if(r.ok){let d=await r.json(),v=d.hits?.[0],f=v&&(v.videos?.medium||v.videos?.small||v.videos?.large);if(f?.url)return{url:f.url,provider:'Pixabay'}}}catch(x){}}return null}
-function render(s,c,i){let a=document.createElement('article');a.className='scene';a.dataset.q=s.query;a.dataset.page=1;if(c?.url)a.dataset.clipUrl=c.url;a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div><div class="body"><b>ESCENA ${i+1}</b><p class="narr">${e(s.narration)}</p><p class="q">🔎 ${e(s.query)}</p><p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p><button class="sec change">↻ Cambiar escena</button></div>`;const scenesRoot=$('#scenes');if(!scenesRoot)throw Error('No existe el contenedor de escenas.');scenesRoot.appendChild(a);const changeBtn=a.querySelector('.change');if(changeBtn)changeBtn.onclick=async()=>{let b=a.querySelector('.change');b.disabled=true;b.textContent='Buscando...';let p=++a.dataset.page,c2=await clip(a.dataset.q,p);a.querySelector('.media').innerHTML=c2?`<video muted loop controls playsinline src="${e(c2.url)}"></video>`:'<span class="err">Sin otro clip</span>';if(c2?.url)a.dataset.clipUrl=c2.url;else delete a.dataset.clipUrl;a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';b.disabled=false;b.textContent='↻ Cambiar escena'}}
+function render(s,c,i){let a=document.createElement('article');a.className='scene';a.dataset.q=s.query;a.dataset.narration=s.narration||'';a.dataset.page=1;if(c?.url)a.dataset.clipUrl=c.url;a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div><div class="body"><b>ESCENA ${i+1}</b><p class="narr">${e(s.narration)}</p><p class="q">🔎 ${e(s.query)}</p><p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p><button class="sec change">↻ Cambiar escena</button></div>`;const scenesRoot=$('#scenes');if(!scenesRoot)throw Error('No existe el contenedor de escenas.');scenesRoot.appendChild(a);const changeBtn=a.querySelector('.change');if(changeBtn)changeBtn.onclick=async()=>{let b=a.querySelector('.change');b.disabled=true;b.textContent='Buscando...';let p=++a.dataset.page,c2=await clip(a.dataset.q,p);a.querySelector('.media').innerHTML=c2?`<video muted loop controls playsinline src="${e(c2.url)}"></video>`:'<span class="err">Sin otro clip</span>';if(c2?.url)a.dataset.clipUrl=c2.url;else delete a.dataset.clipUrl;a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';b.disabled=false;b.textContent='↻ Cambiar escena'}}
 async function go(){
   const script=(document.querySelector('#script')?.value||'').trim();
   const n=Number(document.querySelector('#sceneCount')?.value||8);
@@ -963,7 +1119,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 <script>
 window.addEventListener('DOMContentLoaded',()=>{
   const required=['txtFile','videoTitle','downloadName','script','duration','sceneCount',
-    'gemini','pexels','pixabay','voice','speed','scenes','musicStyle','musicVol',
+    'gemini','pexels','pixabay','voice','speed','scenes','titleOverlay','subtitles','musicStyle','musicVol',
     'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar'];
   const missing=required.filter(id=>!document.getElementById(id));
   if(missing.length){
