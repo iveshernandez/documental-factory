@@ -5,7 +5,7 @@
 <div class="grid"><section class="card"><h2>1. Tu guion</h2><label>Guion completo</label><textarea id="script" placeholder="Pega aquí tu guion documental..."></textarea>
 <div class="row"><div><label>Duración</label><select id="duration"><option>30</option><option>45</option><option>60</option></select></div><div><label>Escenas</label><select id="count"><option>6</option><option selected>8</option><option>10</option><option>12</option></select></div></div>
 <div class="actions"><button class="pri" id="go">🎬 Analizar y buscar clips</button><button class="sec" id="demo">Demo</button></div><div id="status" class="status mut">Esperando un guion.</div></section>
-<section class="card"><h2>2. Tus APIs</h2><label>Gemini API</label><div class="api"><input id="gemini" type="password"><button class="sec show" data-id="gemini">Mostrar</button></div>
+<section class="card"><h2>2. Tus APIs</h2><label>Gemini API</label><div class="tiny">Cambio automático de modelo si Gemini está saturado.</div><div class="api"><input id="gemini" type="password"><button class="sec show" data-id="gemini">Mostrar</button></div>
 <label>Pexels API</label><div class="api"><input id="pexels" type="password"><button class="sec show" data-id="pexels">Mostrar</button></div>
 <label>Pixabay API (opcional)</label><div class="api"><input id="pixabay" type="password"><button class="sec show" data-id="pixabay">Mostrar</button></div>
 <div class="actions"><button class="sec" id="save">Guardar APIs</button><button class="danger" id="erase">Eliminar</button></div><p class="tiny">Las claves se guardan solo en localStorage de este navegador. Cada usuario usa sus propias APIs.</p></section></div>
@@ -16,7 +16,61 @@ document.querySelectorAll('.show').forEach(b=>b.onclick=()=>{let i=$('#'+b.datas
 $('#save').onclick=()=>{keys.forEach(k=>{let v=$('#'+k).value.trim();v?localStorage.setItem('df_'+k,v):localStorage.removeItem('df_'+k)});st('APIs guardadas en este dispositivo.','ok')};
 $('#erase').onclick=()=>{keys.forEach(k=>{localStorage.removeItem('df_'+k);$('#'+k).value=''});st('APIs eliminadas.')};
 function st(t,c='mut'){$('#status').textContent=t;$('#status').className='status '+c}function e(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-async function ai(prompt){let key=$('#gemini').value.trim();if(!key)throw Error('Falta Gemini API.');let u='https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(key);let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.3,maxOutputTokens:2500}})}),d=await r.json();if(!r.ok)throw Error(d?.error?.message||'Gemini falló');return(d.candidates||[]).flatMap(x=>x.content?.parts||[]).map(x=>x.text||'').join('')}
+async function ai(prompt){
+ const key=$('#gemini').value.trim();
+ if(!key) throw Error('Falta Gemini API.');
+
+ // Probamos varios modelos para evitar que una saturación temporal detenga la app.
+ const models=['gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash-lite'];
+ const retryable=[408,429,500,502,503,504];
+ let lastError='Gemini no respondió.';
+
+ for(const model of models){
+   for(let attempt=0;attempt<3;attempt++){
+     try{
+       if(attempt>0){
+         const wait=(1000*Math.pow(2,attempt-1))+Math.floor(Math.random()*700);
+         st(`Alta demanda en ${model}. Reintentando en ${Math.round(wait/1000)} s…`);
+         await new Promise(r=>setTimeout(r,wait));
+       }else{
+         st(`Analizando con ${model}…`);
+       }
+
+       const u=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+       const r=await fetch(u,{
+         method:'POST',
+         headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({
+           contents:[{parts:[{text:prompt}]}],
+           generationConfig:{maxOutputTokens:2500}
+         })
+       });
+
+       let d={};
+       try{ d=await r.json(); }catch(e){}
+
+       if(r.ok){
+         const text=(d.candidates||[])
+           .flatMap(x=>x.content?.parts||[])
+           .map(x=>x.text||'')
+           .join('')
+           .trim();
+         if(text) return text;
+         lastError=`${model} respondió sin texto.`;
+         break;
+       }
+
+       lastError=d?.error?.message||`Error HTTP ${r.status} en ${model}`;
+
+       // Si es saturación/rate-limit, reintenta. Si no, pasa al siguiente modelo.
+       if(!retryable.includes(r.status)) break;
+     }catch(err){
+       lastError=err?.message||String(err);
+     }
+   }
+ }
+ throw Error(lastError+' Se probaron automáticamente varios modelos de respaldo.');
+}
 function json(t){t=t.replace(/```json|```/gi,'').trim();let a=t.indexOf('['),b=t.lastIndexOf(']');if(a<0||b<0)throw Error('Gemini no devolvió JSON válido.');return JSON.parse(t.slice(a,b+1))}
 async function clip(q,page=1){let k=$('#pexels').value.trim();if(k){try{let r=await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(q)}&orientation=portrait&per_page=12&page=${page}`,{headers:{Authorization:k}});if(r.ok){let d=await r.json(),v=d.videos?.[Math.min(page-1,(d.videos?.length||1)-1)];if(v){let f=(v.video_files||[]).filter(x=>x.link).sort((a,b)=>Math.abs((a.width||720)-720)-Math.abs((b.width||720)-720))[0];if(f)return{url:f.link,provider:'Pexels'}}}}catch(x){}}k=$('#pixabay').value.trim();if(k){try{let r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&per_page=10&page=${page}&safesearch=true`);if(r.ok){let d=await r.json(),v=d.hits?.[0],f=v&&(v.videos?.medium||v.videos?.small||v.videos?.large);if(f?.url)return{url:f.url,provider:'Pixabay'}}}catch(x){}}return null}
 function render(s,c,i){let a=document.createElement('article');a.className='scene';a.dataset.q=s.query;a.dataset.page=1;a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div><div class="body"><b>ESCENA ${i+1}</b><p>${e(s.narration)}</p><p class="q">🔎 ${e(s.query)}</p><p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p><button class="sec change">↻ Cambiar escena</button></div>`;$('#scenes').appendChild(a);a.querySelector('.change').onclick=async()=>{let b=a.querySelector('.change');b.disabled=true;b.textContent='Buscando...';let p=++a.dataset.page,c2=await clip(a.dataset.q,p);a.querySelector('.media').innerHTML=c2?`<video muted loop controls playsinline src="${e(c2.url)}"></video>`:'<span class="err">Sin otro clip</span>';a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';b.disabled=false;b.textContent='↻ Cambiar escena'}}
