@@ -77,7 +77,7 @@
   </select></div>
 </div>
 <div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz del guion</button></div>
-<div id="ttsStatus" class="status mut">Motor Piper: el modelo es_MX se descargará automáticamente.</div>
+<div id="ttsStatus" class="status mut">Motor Piper: ONNX se cargará por rutas locales /ort/ del mismo dominio.</div>
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
 <div id="audioActions" class="actions"></div>
 </section></div>
@@ -122,7 +122,7 @@ async function loadPiperModule(){
     try{
       ttsStatus('Cargando motor Piper para español latino…');
       // Browser-only Piper implementation, bundled as ESM.
-      piperModule=await import('https://esm.sh/@mintplex-labs/piper-tts-web@1.0.3?bundle');
+      piperModule=await import('https://esm.sh/@mintplex-labs/piper-tts-web@1.0.5?bundle');
       ttsStatus('✅ Motor Piper listo.','ok');
       return piperModule;
     }catch(err){
@@ -139,19 +139,27 @@ async function loadPiperModule(){
 async function ensurePiperVoice(voiceId){
   const tts=await loadPiperModule();
 
-  // The library caches models in OPFS. Explicit download gives visible progress.
-  if(piperVoiceLoaded===voiceId)return tts;
+  if(piperVoiceLoaded===voiceId && window.documentalPiperSession){
+    return window.documentalPiperSession;
+  }
 
-  // TtsSession is a singleton; reset it when changing voice so the selected
-  // Spanish model is actually reloaded instead of reusing the previous model.
+  // Fuerza un único hilo para evitar requisitos innecesarios de SharedArrayBuffer.
+  try{
+    Object.defineProperty(navigator,'hardwareConcurrency',{
+      configurable:true,
+      get:()=>1
+    });
+  }catch(_){}
+
   try{
     if(tts.TtsSession && tts.TtsSession._instance){
       tts.TtsSession._instance=null;
     }
   }catch(_){}
 
-  ttsStatus('Preparando voz '+voiceId+'… la primera descarga puede ser de unos 60 MB.');
+  ttsStatus('Preparando voz '+voiceId+'…');
 
+  // El modelo de voz se descarga/cacha normalmente.
   if(typeof tts.download==='function'){
     await tts.download(voiceId,(progress)=>{
       try{
@@ -167,9 +175,27 @@ async function ensurePiperVoice(voiceId){
     });
   }
 
+  if(!tts.TtsSession){
+    throw new Error('La versión de Piper cargada no expone TtsSession.');
+  }
+
+  // IMPORTANTE:
+  // Estas rutas pertenecen al mismo dominio de Vercel.
+  // vercel.json las redirige/proxy a los archivos oficiales correspondientes.
+  const session=await tts.TtsSession.create({
+    voiceId,
+    wasmPaths:{
+      onnxWasm:'/ort/',
+      piperData:'/piper/piper_phonemize.data',
+      piperWasm:'/piper/piper_phonemize.wasm'
+    },
+    logger:(msg)=>console.log('[Piper]',msg)
+  });
+
+  window.documentalPiperSession=session;
   piperVoiceLoaded=voiceId;
   ttsStatus('✅ Voz Piper español latino preparada.','ok');
-  return tts;
+  return session;
 }
 
 async function getBlobSeconds(blob){
@@ -197,22 +223,10 @@ async function generateVoice(){
   const voice=q('#voice')?.value||'es_MX-claude-high';
 
   try{
-    const tts=await ensurePiperVoice(voice);
+    const session=await ensurePiperVoice(voice);
     ttsStatus('Generando narración en español latino con Piper…');
 
-    const blob=await tts.predict(
-      {text,voiceId:voice},
-      (progress)=>{
-        try{
-          const total=Number(progress?.total||0);
-          const loaded=Number(progress?.loaded||0);
-          if(total>0){
-            const pct=Math.round(loaded*100/total);
-            ttsStatus(`Piper preparando modelo: ${pct}%`);
-          }
-        }catch(_){}
-      }
-    );
+    const blob=await session.predict(text);
 
     if(!(blob instanceof Blob) || !blob.size){
       throw new Error('Piper no devolvió audio.');
@@ -254,8 +268,12 @@ async function generateVoice(){
     ttsStatus('✅ Voz Piper en español latino generada'+(seconds?` — ${seconds.toFixed(1)} s`:'')+'.','ok');
     return {blob,seconds};
   }catch(err){
-    ttsStatus('❌ '+(err?.message||err),'err');
-    throw err;
+    const raw=err?.message||String(err);
+    const friendly=/no available backend|initWasm|onnxruntime/i.test(raw)
+      ? 'Piper/ONNX no pudo iniciar. Verifica que Vercel haya desplegado también vercel.json. Detalle: '+raw
+      : raw;
+    ttsStatus('❌ '+friendly,'err');
+    throw new Error(friendly);
   }
 }
 
