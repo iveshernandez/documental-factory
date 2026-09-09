@@ -51,7 +51,7 @@
 <div class="pipeline" id="pipeline">
   <div class="pipe" id="stepTxt"><span>1</span><div><b>TXT</b><small>Esperando archivo</small></div></div>
   <div class="pipe" id="stepScenes"><span>2</span><div><b>Escenas</b><small>En espera</small></div></div>
-  <div class="pipe" id="stepVoice"><span>3</span><div><b>Voz Piper es_MX</b><small>En espera</small></div></div>
+  <div class="pipe" id="stepVoice"><span>3</span><div><b>Voz española</b><small>En espera</small></div></div>
   <div class="pipe" id="stepRender"><span>4</span><div><b>Render</b><small>En espera</small></div></div>
   <div class="pipe" id="stepDone"><span>5</span><div><b>Descarga</b><small>En espera</small></div></div>
 </div>
@@ -65,19 +65,21 @@
 <label>Pixabay API (opcional)</label><div class="api"><input id="pixabay" type="password"><button class="sec show" data-id="pixabay">Mostrar</button></div>
 <div class="actions"><button class="sec" id="save">Guardar APIs</button><button class="danger" id="erase">Eliminar</button></div><p class="tiny">Las claves se guardan solo en localStorage de este navegador. Cada usuario usa sus propias APIs.</p>
 <hr style="border:0;border-top:1px solid var(--l);margin:18px 0">
-<h2>3. Voz Piper — español latino</h2>
-<p class="tiny">Usa voces Piper es_MX. La primera vez descarga el modelo de voz y luego queda guardado en el navegador cuando OPFS está disponible. No usa voces inglesas.</p>
+<h2>3. Voz — español latino</h2>
+<p class="tiny">Motor: Transformers.js + VITS/MMS. Funciona directamente en el navegador, sin Transformers.js, sin /ort/, sin vercel.json y sin configurar WASM manualmente.</p>
 <div class="row">
   <div><label>Voz</label><select id="voice">
-    <option value="es_MX-claude-high" selected>Claude — Español México · alta calidad</option>
-    <option value="es_MX-ald-medium">ALD — Español México · calidad media</option>
+    <option value="ylacombe/mms-spa-finetuned-colombian-monospeaker" selected>Colombiana — español latino</option>
+    <option value="ylacombe/mms-spa-finetuned-argentinian-monospeaker">Argentina — español latino</option>
+    <option value="ylacombe/mms-spa-finetuned-chilean-monospeaker">Chilena — español latino</option>
+    <option value="Xenova/mms-tts-spa">Español general — MMS</option>
   </select></div>
   <div><label>Velocidad</label><select id="speed">
-    <option value="1" selected>1.00x</option>
+    <option value="1" selected>Normal</option>
   </select></div>
 </div>
-<div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz del guion</button></div>
-<div id="ttsStatus" class="status mut">Motor Piper: ONNX se cargará desde URLs absolutas del mismo dominio de Vercel.</div>
+<div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz</button></div>
+<div id="ttsStatus" class="status mut">Motor de voz listo para cargar cuando subas el TXT.</div>
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
 <div id="audioActions" class="actions"></div>
 </section></div>
@@ -99,9 +101,10 @@
 
 <script type="module">
 const q=s=>document.querySelector(s);
-let piperModule=null;
-let piperLoading=null;
-let piperVoiceLoaded=null;
+let hfModule=null;
+let hfLoading=null;
+let synthesizer=null;
+let loadedVoice=null;
 
 function ttsStatus(text,cls='mut'){
   const el=q('#ttsStatus');
@@ -114,116 +117,123 @@ function ttsStatus(text,cls='mut'){
   }
 }
 
-async function loadPiperModule(){
-  if(piperModule)return piperModule;
-  if(piperLoading)return piperLoading;
-
-  piperLoading=(async()=>{
-    try{
-      ttsStatus('Cargando motor Piper para español latino…');
-      // Browser-only Piper implementation, bundled as ESM.
-      piperModule=await import('https://esm.sh/@mintplex-labs/piper-tts-web@1.0.5?bundle');
-      ttsStatus('✅ Motor Piper listo.','ok');
-      return piperModule;
-    }catch(err){
-      piperLoading=null;
-      piperModule=null;
-      ttsStatus('❌ No se pudo cargar Piper: '+(err?.message||err),'err');
-      throw err;
+async function loadHF(){
+  if(hfModule)return hfModule;
+  if(hfLoading)return hfLoading;
+  hfLoading=(async()=>{
+    ttsStatus('Cargando motor Transformers.js…');
+    hfModule=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+    // Dejamos que Transformers.js gestione ONNX/WASM internamente.
+    if(hfModule.env){
+      hfModule.env.allowLocalModels=false;
+      hfModule.env.useBrowserCache=true;
     }
-  })();
-
-  return piperLoading;
+    ttsStatus('✅ Motor Transformers.js listo.','ok');
+    return hfModule;
+  })().catch(err=>{
+    hfLoading=null;hfModule=null;
+    ttsStatus('❌ No se pudo cargar Transformers.js: '+(err?.message||err),'err');
+    throw err;
+  });
+  return hfLoading;
 }
 
-async function ensurePiperVoice(voiceId){
-  const tts=await loadPiperModule();
-
-  if(piperVoiceLoaded===voiceId && window.documentalPiperSession){
-    return window.documentalPiperSession;
-  }
-
-  // Fuerza un único hilo para evitar requisitos innecesarios de SharedArrayBuffer.
-  try{
-    Object.defineProperty(navigator,'hardwareConcurrency',{
-      configurable:true,
-      get:()=>1
-    });
-  }catch(_){}
-
-  try{
-    if(tts.TtsSession && tts.TtsSession._instance){
-      tts.TtsSession._instance=null;
+function splitText(text,maxChars=220){
+  const clean=(text||'').replace(/\s+/g,' ').trim();
+  if(!clean)return [];
+  const sentences=clean.match(/[^.!?¿¡]+[.!?]+|[^.!?¿¡]+$/g)||[clean];
+  const chunks=[];
+  let current='';
+  for(let s of sentences){
+    s=s.trim();
+    if(!s)continue;
+    if((current+' '+s).trim().length<=maxChars){
+      current=(current+' '+s).trim();
+      continue;
     }
-  }catch(_){}
-
-  ttsStatus('Preparando voz '+voiceId+'…');
-
-  // El modelo de voz se descarga/cacha normalmente.
-  if(typeof tts.download==='function'){
-    await tts.download(voiceId,(progress)=>{
-      try{
-        const total=Number(progress?.total||0);
-        const loaded=Number(progress?.loaded||0);
-        if(total>0){
-          const pct=Math.max(0,Math.min(100,Math.round(loaded*100/total)));
-          ttsStatus(`Descargando voz español latino ${voiceId}: ${pct}%`);
-        }else{
-          ttsStatus(`Descargando voz español latino ${voiceId}…`);
-        }
-      }catch(_){}
-    });
+    if(current){chunks.push(current);current='';}
+    while(s.length>maxChars){
+      let cut=s.lastIndexOf(' ',maxChars);
+      if(cut<80)cut=maxChars;
+      chunks.push(s.slice(0,cut).trim());
+      s=s.slice(cut).trim();
+    }
+    current=s;
   }
+  if(current)chunks.push(current);
+  return chunks;
+}
 
-  if(!tts.TtsSession){
-    throw new Error('La versión de Piper cargada no expone TtsSession.');
+function floatTo16BitPCM(float32){
+  const out=new Int16Array(float32.length);
+  for(let i=0;i<float32.length;i++){
+    const s=Math.max(-1,Math.min(1,float32[i]));
+    out[i]=s<0?s*0x8000:s*0x7FFF;
   }
+  return out;
+}
 
-  // Comprueba primero que Vercel realmente sirve el loader ONNX desde el mismo origen.
-  // Esto hace que el error sea claro ANTES de inicializar ONNX.
-  const ortProbe=window.location.origin+'/ort/ort-wasm-simd-threaded.mjs';
-  try{
-    const probe=await fetch(ortProbe,{cache:'no-store'});
-    if(!probe.ok) throw new Error('HTTP '+probe.status);
-  }catch(e){
-    throw new Error('No puedo acceder a ONNX desde '+ortProbe+'. Revisa vercel.json. '+(e?.message||e));
-  }
+function concatFloatArrays(parts,total){
+  const out=new Float32Array(total);
+  let offset=0;
+  for(const p of parts){out.set(p,offset);offset+=p.length;}
+  return out;
+}
 
-  // IMPORTANTE:
-  // Estas rutas pertenecen al mismo dominio de Vercel.
-  // vercel.json las redirige/proxy a los archivos oficiales correspondientes.
-  const session=await tts.TtsSession.create({
-    voiceId,
-    wasmPaths:{
-      // IMPORTANT: full URLs, not /ort/. Piper is imported from esm.sh and
-      // relative paths can otherwise resolve against https://esm.sh.
-      onnxWasm:window.location.origin+'/ort/',
-      piperData:window.location.origin+'/piper/piper_phonemize.data',
-      piperWasm:window.location.origin+'/piper/piper_phonemize.wasm'
-    },
-    logger:(msg)=>console.log('[Piper]',msg)
+function wavBlobFromFloat(audio,sampleRate){
+  const pcm=floatTo16BitPCM(audio);
+  const buffer=new ArrayBuffer(44+pcm.byteLength);
+  const view=new DataView(buffer);
+  const write=(o,s)=>{for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));};
+  write(0,'RIFF');
+  view.setUint32(4,36+pcm.byteLength,true);
+  write(8,'WAVE');
+  write(12,'fmt ');
+  view.setUint32(16,16,true);
+  view.setUint16(20,1,true);
+  view.setUint16(22,1,true);
+  view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*2,true);
+  view.setUint16(32,2,true);
+  view.setUint16(34,16,true);
+  write(36,'data');
+  view.setUint32(40,pcm.byteLength,true);
+  new Int16Array(buffer,44).set(pcm);
+  return new Blob([buffer],{type:'audio/wav'});
+}
+
+async function ensureSynth(voice){
+  const hf=await loadHF();
+  if(synthesizer && loadedVoice===voice)return synthesizer;
+
+  synthesizer=null;
+  loadedVoice=null;
+  ttsStatus('Descargando voz española la primera vez…');
+
+  // dtype q8 keeps the browser model lighter while retaining good quality.
+  synthesizer=await hf.pipeline('text-to-speech',voice,{
+    dtype:'q8',
+    progress_callback:(p)=>{
+      if(!p)return;
+      if(p.status==='progress' && Number.isFinite(p.progress)){
+        ttsStatus(`Descargando voz: ${Math.round(p.progress)}%`);
+      }else if(p.status==='ready'){
+        ttsStatus('Modelo de voz cargado.');
+      }
+    }
   });
 
-  window.documentalPiperSession=session;
-  piperVoiceLoaded=voiceId;
-  ttsStatus('✅ Voz Piper español latino preparada.','ok');
-  return session;
+  loadedVoice=voice;
+  ttsStatus('✅ Voz española cargada.','ok');
+  return synthesizer;
 }
 
 async function getBlobSeconds(blob){
   return await new Promise((resolve,reject)=>{
-    const u=URL.createObjectURL(blob);
-    const a=new Audio();
+    const u=URL.createObjectURL(blob),a=new Audio();
     a.preload='metadata';
-    a.onloadedmetadata=()=>{
-      const d=a.duration;
-      URL.revokeObjectURL(u);
-      resolve(Number.isFinite(d)?d:null);
-    };
-    a.onerror=()=>{
-      URL.revokeObjectURL(u);
-      reject(new Error('No pude leer la duración del audio Piper.'));
-    };
+    a.onloadedmetadata=()=>{const d=a.duration;URL.revokeObjectURL(u);resolve(Number.isFinite(d)?d:null);};
+    a.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('No pude leer la duración del audio.'));};
     a.src=u;
   });
 }
@@ -232,73 +242,77 @@ async function generateVoice(){
   const text=(q('#script')?.value||'').trim();
   if(!text)throw new Error('El guion está vacío.');
 
-  const voice=q('#voice')?.value||'es_MX-claude-high';
+  const voice=q('#voice')?.value||'ylacombe/mms-spa-finetuned-colombian-monospeaker';
 
   try{
-    const session=await ensurePiperVoice(voice);
-    ttsStatus('Generando narración en español latino con Piper…');
+    const synth=await ensureSynth(voice);
+    const chunks=splitText(text,220);
+    if(!chunks.length)throw new Error('No pude dividir el guion para narrarlo.');
 
-    const blob=await session.predict(text);
+    const parts=[];
+    let total=0;
+    let sampleRate=16000;
 
-    if(!(blob instanceof Blob) || !blob.size){
-      throw new Error('Piper no devolvió audio.');
+    for(let i=0;i<chunks.length;i++){
+      ttsStatus(`Generando voz en español latino ${i+1}/${chunks.length}…`);
+      const out=await synth(chunks[i]);
+      if(!out?.audio?.length)throw new Error(`La voz no devolvió audio en el bloque ${i+1}.`);
+      sampleRate=Number(out.sampling_rate||sampleRate);
+
+      const audio=out.audio instanceof Float32Array ? out.audio : new Float32Array(out.audio);
+      parts.push(audio); total+=audio.length;
+
+      // pausa natural de 90 ms entre bloques
+      if(i<chunks.length-1){
+        const silence=new Float32Array(Math.round(sampleRate*0.09));
+        parts.push(silence); total+=silence.length;
+      }
+      await new Promise(r=>setTimeout(r,20));
     }
+
+    const merged=concatFloatArrays(parts,total);
+    const blob=wavBlobFromFloat(merged,sampleRate);
+    const seconds=await getBlobSeconds(blob).catch(()=>merged.length/sampleRate);
 
     const url=URL.createObjectURL(blob);
     const player=q('#audio');
     if(player){
       if(player.dataset.url)URL.revokeObjectURL(player.dataset.url);
-      player.dataset.url=url;
-      player.src=url;
-      player.style.display='block';
+      player.dataset.url=url;player.src=url;player.style.display='block';
     }
-
-    const seconds=await getBlobSeconds(blob).catch(()=>null);
 
     const actions=q('#audioActions');
     if(actions){
       actions.innerHTML='<button class="sec" id="downloadVoice">⬇ Descargar WAV</button>';
       q('#downloadVoice')?.addEventListener('click',()=>{
-        const a=document.createElement('a');
-        a.href=url;
-        a.download='narracion_piper_es_MX.wav';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        const a=document.createElement('a');a.href=url;a.download='narracion_espanol_latino.wav';
+        document.body.appendChild(a);a.click();a.remove();
       });
     }
 
     window.documentalFactoryAudioBlob=blob;
     window.documentalFactoryAudioMeta={
-      engine:'piper',
-      language:'es_MX',
+      engine:'transformersjs-vits',
+      language:'es',
       voice,
-      speed:1,
-      seconds:seconds?Number(seconds):null
+      seconds:Number(seconds)||null,
+      samplingRate:sampleRate
     };
 
-    ttsStatus('✅ Voz Piper en español latino generada'+(seconds?` — ${seconds.toFixed(1)} s`:'')+'.','ok');
+    ttsStatus(`✅ Voz española generada — ${Number(seconds).toFixed(1)} s.`,'ok');
     return {blob,seconds};
   }catch(err){
-    const raw=err?.message||String(err);
-    const friendly=/https:\/\/esm\.sh\/ort\//i.test(raw)
-      ? 'Piper intentó resolver ONNX contra esm.sh. Esta versión usa URLs absolutas; haz Ctrl+F5 y confirma que Vercel desplegó el último index.html. Detalle: '+raw
-      : /no available backend|initWasm|onnxruntime/i.test(raw)
-        ? 'Piper/ONNX no pudo iniciar. Verifica vercel.json y abre diagnostico.html. Detalle: '+raw
-        : raw;
-    ttsStatus('❌ '+friendly,'err');
-    throw new Error(friendly);
+    const msg=err?.message||String(err);
+    ttsStatus('❌ '+msg,'err');
+    throw err;
   }
 }
 
 window.generateDocumentalVoice=generateVoice;
 q('#makeVoice')?.addEventListener('click',()=>generateVoice().catch(()=>{}));
 
-// Preload only the lightweight JS engine. The ~60 MB voice is downloaded
-// when a TXT actually starts processing, avoiding unnecessary bandwidth.
-window.addEventListener('load',()=>{
-  setTimeout(()=>loadPiperModule().catch(()=>{}),400);
-});
+// Solo precarga la librería. El modelo se descarga cuando realmente se necesita.
+window.addEventListener('load',()=>setTimeout(()=>loadHF().catch(()=>{}),500));
 </script>
 
 
@@ -563,7 +577,7 @@ async function createFinalVideo(){
 
     // Voice is created automatically if it doesn't exist yet.
     if(!window.documentalFactoryAudioBlob){
-      rs('1/5 Generando voz automáticamente con Piper español latino…');
+      rs('1/5 Generando voz automáticamente con Transformers.js…');
       rb(5);
       const result=await window.generateDocumentalVoice?.();
       if(!window.documentalFactoryAudioBlob) throw new Error('No se pudo generar la voz.');
@@ -654,7 +668,7 @@ async function createFinalVideo(){
     a.remove();
 
     rb(100);
-    rs(`✅ Video terminado: 720×1280, 30 FPS, voz Piper es_MX y música documental. Descarga iniciada.`, 'ok');
+    rs(`✅ Video terminado: 720×1280, 30 FPS, voz Transformers.js y música documental. Descarga iniciada.`, 'ok');
 
     await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav','music.wav','documental_final.mp4']);
     return true;
@@ -670,7 +684,7 @@ async function createFinalVideo(){
 window.createDocumentalFinalVideo=createFinalVideo;
 R('#finalRender')?.addEventListener('click',createFinalVideo);
 
-// Preload FFmpeg only when the browser is idle, so Piper gets priority first.
+// Preload FFmpeg only when the browser is idle, so Transformers.js gets priority first.
 window.addEventListener('load',()=>{
   setTimeout(()=>{
     if('requestIdleCallback' in window){
@@ -864,13 +878,13 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   async function makeVoice(){
     step('stepVoice','active','Generando narración');
-    ast('2/4 Piper está generando la narración en español latino…');
+    ast('2/4 Generando narración en español latino…');
     abar(Math.max(22,parseFloat(A('#autoBar')?.style.width)||22));
     window.documentalFactoryAudioBlob=null;
     window.documentalFactoryAudioMeta=null;
-    if(typeof window.generateDocumentalVoice!=='function')throw Error('Motor Piper no disponible.');
+    if(typeof window.generateDocumentalVoice!=='function')throw Error('Motor Transformers.js no disponible.');
     await window.generateDocumentalVoice();
-    if(!window.documentalFactoryAudioBlob)throw Error('Piper terminó sin crear audio.');
+    if(!window.documentalFactoryAudioBlob)throw Error('Transformers.js terminó sin crear audio.');
     step('stepVoice','done',`Voz lista${window.documentalFactoryAudioMeta?.seconds?' · '+window.documentalFactoryAudioMeta.seconds+' s':''}`);
     abar(60);
     return window.documentalFactoryAudioBlob;
@@ -900,7 +914,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       if(!(A('#gemini')?.value||'').trim())throw Error('Falta Gemini API.');
       if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw Error('Falta Pexels o Pixabay API.');
 
-      // Start Piper voice and visual scene creation together.
+      // Start Transformers.js voice and visual scene creation together.
       // This makes voice generation visibly active immediately and saves time.
       const voicePromise=makeVoice();
       const scenesPromise=makeScenes();
