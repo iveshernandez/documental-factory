@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: MMS + títulos + subtítulos + música v3</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Cerebras + MMS + títulos + subtítulos + música v4</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -61,7 +61,7 @@
   <div class="progress"><div id="autoBar"></div></div>
 </section>
 
-<section class="card"><h2>2. Tus APIs</h2><label>Gemini API</label><div class="api"><input id="gemini" type="password"><button class="sec show" data-id="gemini">Mostrar</button></div>
+<section class="card"><h2>2. Tus APIs</h2><label>Cerebras API</label><div class="api"><input id="cerebras" type="password"><button class="sec show" data-id="cerebras">Mostrar</button></div>
 <label>Pexels API</label><div class="api"><input id="pexels" type="password"><button class="sec show" data-id="pexels">Mostrar</button></div>
 <label>Pixabay API (opcional)</label><div class="api"><input id="pixabay" type="password"><button class="sec show" data-id="pixabay">Mostrar</button></div>
 <div class="actions"><button class="sec" id="save">Guardar APIs</button><button class="danger" id="erase">Eliminar</button></div><p class="tiny">Las claves se guardan solo en localStorage de este navegador. Cada usuario usa sus propias APIs.</p>
@@ -852,46 +852,72 @@ window.addEventListener('load',()=>{
 </script>
 
 <script>
-const $=s=>document.querySelector(s),keys=['gemini','pexels','pixabay'];keys.forEach(k=>{const el=$('#'+k);if(el)el.value=localStorage.getItem('df_'+k)||''});
+const $=s=>document.querySelector(s),keys=['cerebras','pexels','pixabay'];keys.forEach(k=>{const el=$('#'+k);if(el)el.value=localStorage.getItem('df_'+k)||''});
 document.querySelectorAll('.show').forEach(b=>b.onclick=()=>{let i=$('#'+b.dataset.id);i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'Mostrar':'Ocultar'});
 if($('#save')) $('#save').onclick=()=>{keys.forEach(k=>{const el=$('#'+k);if(!el)return;let v=(el.value||'').trim();v?localStorage.setItem('df_'+k,v):localStorage.removeItem('df_'+k)});st('APIs guardadas en este dispositivo.','ok')};
 if($('#erase')) $('#erase').onclick=()=>{keys.forEach(k=>{localStorage.removeItem('df_'+k);const el=$('#'+k);if(el)el.value=''});st('APIs eliminadas.')};
 function st(t,c='mut'){const el=$('#status')||$('#autoStatus');if(el){el.textContent=t;el.className='status '+c}}function e(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 async function ai(prompt){
-  const key=(document.querySelector('#gemini')?.value||'').trim();
-  if(!key)throw Error('Falta Gemini API.');
-  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(key);
-  let last='Gemini no respondió.';
-  for(let attempt=0;attempt<4;attempt++){
-    if(attempt>0){
-      const wait=1200*Math.pow(2,attempt-1);
-      st(`Gemini está ocupado. Reintentando en ${Math.round(wait/1000)} s…`);
-      await new Promise(r=>setTimeout(r,wait));
-    }
+  const key=(R('#cerebras')?.value||'').trim();
+  if(!key)throw new Error('Falta la API key de Cerebras.');
+
+  const endpoint='https://api.cerebras.ai/v1/chat/completions';
+  const body={
+    model:'qwen-3.8-27b',
+    reasoning_effort:'none',
+    messages:[
+      {role:'system',content:'Eres un editor experto de documentales verticales. Responde ÚNICAMENTE JSON válido, sin markdown, sin explicaciones.'},
+      {role:'user',content:prompt}
+    ],
+    response_format:{type:'json_object'},
+    temperature:0.2,
+    max_completion_tokens:5000,
+    stream:false
+  };
+
+  let lastErr=null;
+  for(let attempt=1;attempt<=5;attempt++){
     try{
-      const r=await fetch(url,{
+      const res=await fetch(endpoint,{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents:[{parts:[{text:prompt}]}],
-          generationConfig:{temperature:.3,maxOutputTokens:2500}
-        })
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify(body)
       });
-      let d={};
-      try{d=await r.json()}catch(_){}
-      if(r.ok){
-        const text=(d.candidates||[]).flatMap(x=>x.content?.parts||[]).map(x=>x.text||'').join('').trim();
-        if(text)return text;
-        last='Gemini respondió sin texto.';
-      }else{
-        last=d?.error?.message||`Gemini HTTP ${r.status}`;
-        if(![408,429,500,502,503,504].includes(r.status))break;
+      const raw=await res.text();
+      let data=null;
+      try{data=JSON.parse(raw);}catch(_){}
+
+      if(res.ok){
+        const text=data?.choices?.[0]?.message?.content;
+        if(!text)throw new Error('Cerebras respondió sin contenido.');
+        return text;
       }
-    }catch(err){last=err?.message||String(err)}
+
+      const msg=data?.error?.message||raw||('HTTP '+res.status);
+      if([408,429,500,502,503,504].includes(res.status) && attempt<5){
+        const retryHeader=Number(res.headers.get('retry-after'));
+        const match=String(msg).match(/(?:retry|try again)[^0-9]*([0-9]+(?:\.[0-9]+)?)/i);
+        const waitSec=Number.isFinite(retryHeader)&&retryHeader>0 ? retryHeader : match ? Math.ceil(Number(match[1])) : Math.min(30,Math.pow(2,attempt));
+        rs(`Cerebras ocupado o limitado. Reintentando en ${waitSec} s…`);
+        await new Promise(r=>setTimeout(r,waitSec*1000));
+        continue;
+      }
+      throw new Error('Cerebras: '+msg);
+    }catch(err){
+      lastErr=err;
+      if(attempt>=5)break;
+      if(/Failed to fetch|NetworkError|fetch/i.test(err?.message||'')){
+        const waitSec=Math.min(20,Math.pow(2,attempt));
+        rs(`Conexión con Cerebras interrumpida. Reintentando en ${waitSec} s…`);
+        await new Promise(r=>setTimeout(r,waitSec*1000));
+        continue;
+      }
+      throw err;
+    }
   }
-  throw Error(last);
+  throw lastErr||new Error('No se pudo obtener respuesta de Cerebras.');
 }
-function json(t){t=t.replace(/```json|```/gi,'').trim();let a=t.indexOf('['),b=t.lastIndexOf(']');if(a<0||b<0)throw Error('Gemini no devolvió JSON válido.');return JSON.parse(t.slice(a,b+1))}
+function json(t){t=t.replace(/```json|```/gi,'').trim();let a=t.indexOf('['),b=t.lastIndexOf(']');if(a<0||b<0)throw Error('Cerebras no devolvió JSON válido.');return JSON.parse(t.slice(a,b+1))}
 async function clip(q,page=1){let k=($('#pexels')?.value||'').trim();if(k){try{let r=await fetch(`https://api.pexels.com/v1/videos/search?query=${encodeURIComponent(q)}&orientation=portrait&per_page=12&page=${page}`,{headers:{Authorization:k}});if(r.ok){let d=await r.json(),v=d.videos?.[Math.min(page-1,(d.videos?.length||1)-1)];if(v){let f=(v.video_files||[]).filter(x=>x.link).sort((a,b)=>Math.abs((a.width||720)-720)-Math.abs((b.width||720)-720))[0];if(f)return{url:f.link,provider:'Pexels'}}}}catch(x){}}k=($('#pixabay')?.value||'').trim();if(k){try{let r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&per_page=10&page=${page}&safesearch=true`);if(r.ok){let d=await r.json(),v=d.hits?.[0],f=v&&(v.videos?.medium||v.videos?.small||v.videos?.large);if(f?.url)return{url:f.url,provider:'Pixabay'}}}catch(x){}}return null}
 function render(s,c,i){let a=document.createElement('article');a.className='scene';a.dataset.q=s.query;a.dataset.narration=s.narration||'';a.dataset.page=1;if(c?.url)a.dataset.clipUrl=c.url;a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div><div class="body"><b>ESCENA ${i+1}</b><p class="narr">${e(s.narration)}</p><p class="q">🔎 ${e(s.query)}</p><p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p><button class="sec change">↻ Cambiar escena</button></div>`;const scenesRoot=$('#scenes');if(!scenesRoot)throw Error('No existe el contenedor de escenas.');scenesRoot.appendChild(a);const changeBtn=a.querySelector('.change');if(changeBtn)changeBtn.onclick=async()=>{let b=a.querySelector('.change');b.disabled=true;b.textContent='Buscando...';let p=++a.dataset.page,c2=await clip(a.dataset.q,p);a.querySelector('.media').innerHTML=c2?`<video muted loop controls playsinline src="${e(c2.url)}"></video>`:'<span class="err">Sin otro clip</span>';if(c2?.url)a.dataset.clipUrl=c2.url;else delete a.dataset.clipUrl;a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';b.disabled=false;b.textContent='↻ Cambiar escena'}}
 async function go(){
@@ -904,7 +930,7 @@ async function go(){
   if(!script)throw Error('El guion está vacío.');
   if(!pex && !pix)throw Error('Falta la API de Pexels o Pixabay.');
 
-  st('Gemini está dividiendo el guion…');
+  st('Cerebras está dividiendo el guion…');
   const prompt=`Divide este guion en exactamente ${n} escenas visuales para un video vertical.
 Devuelve SOLO un array JSON válido. Cada objeto debe tener:
 {"narration":"fragmento del guion","query":"búsqueda visual EN INGLÉS de 2 a 6 palabras para encontrar metraje real"}.
@@ -913,7 +939,7 @@ GUION:
 ${script}`;
 
   const arr=json(await ai(prompt));
-  if(!Array.isArray(arr)||!arr.length)throw Error('Gemini no devolvió escenas utilizables.');
+  if(!Array.isArray(arr)||!arr.length)throw Error('Cerebras no devolvió escenas utilizables.');
 
   const scenesEl=document.querySelector('#scenes');
   if(!scenesEl)throw Error('No existe el contenedor de escenas.');
@@ -1015,7 +1041,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   async function makeScenes(){
     step('stepScenes','active','Analizando y buscando clips');
-    ast('1/4 Gemini analiza el guion y Pexels/Pixabay buscan los clips…');
+    ast('1/4 Cerebras analiza el guion y Pexels/Pixabay buscan los clips…');
     abar(10);
     if(typeof window.documentalAnalyzeScenes!=='function')throw Error('Motor de escenas no disponible.');
     await window.documentalAnalyzeScenes();
@@ -1068,7 +1094,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     try{
       const script=(A('#script')?.value||'').trim();
       if(!script)throw Error('Primero sube un TXT.');
-      if(!(A('#gemini')?.value||'').trim())throw Error('Falta Gemini API.');
+      if(!(A('#gemini')?.value||'').trim())throw Error('Falta Cerebras API.');
       if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw Error('Falta Pexels o Pixabay API.');
 
       // Start Transformers.js voice and visual scene creation together.
@@ -1119,7 +1145,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 <script>
 window.addEventListener('DOMContentLoaded',()=>{
   const required=['txtFile','videoTitle','downloadName','script','duration','sceneCount',
-    'gemini','pexels','pixabay','voice','speed','scenes','titleOverlay','subtitles','musicStyle','musicVol',
+    'cerebras','pexels','pixabay','voice','speed','scenes','titleOverlay','subtitles','musicStyle','musicVol',
     'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar'];
   const missing=required.filter(id=>!document.getElementById(id));
   if(missing.length){
