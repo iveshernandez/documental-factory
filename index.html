@@ -1,7 +1,7 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documental Factory</title>
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
-</style></head><body><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT → título + guion → voz → escenas → música → render → descarga automática.</div>
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -48,6 +48,15 @@
     <button class="pri" id="autoCreate" disabled>⚡ REINTENTAR CREACIÓN</button>
   </div>
   <div id="autoStatus" class="status mut">Sube un archivo .txt. El proceso comenzará automáticamente.</div>
+<div class="pipeline" id="pipeline">
+  <div class="pipe" id="stepTxt"><span>1</span><div><b>TXT</b><small>Esperando archivo</small></div></div>
+  <div class="pipe" id="stepScenes"><span>2</span><div><b>Escenas</b><small>En espera</small></div></div>
+  <div class="pipe" id="stepVoice"><span>3</span><div><b>Voz Kokoro</b><small>En espera</small></div></div>
+  <div class="pipe" id="stepRender"><span>4</span><div><b>Render</b><small>En espera</small></div></div>
+  <div class="pipe" id="stepDone"><span>5</span><div><b>Descarga</b><small>En espera</small></div></div>
+</div>
+<div id="liveLog" class="liveLog"></div>
+
   <div class="progress"><div id="autoBar"></div></div>
 </section>
 
@@ -178,6 +187,7 @@ async function generateVoice(){
     return {blob,seconds:seconds?Number(seconds):null};
   }catch(err){
     ttsStatus('❌ '+(err?.message||err),'err');
+    throw err;
   }
 }
 
@@ -208,8 +218,10 @@ const R=s=>document.querySelector(s);
 function rs(text,cls='mut'){
   const el=R('#renderStatus');
   if(el){el.textContent=text;el.className='status '+cls;}
+  const auto=R('#autoStatus');if(auto && /^\d\/5|Renderizando|Uniendo|Cargando FFmpeg/.test(text)){auto.textContent=text;}
+  const log=R('#liveLog');if(log){const t=new Date().toLocaleTimeString();log.innerHTML+=`<div>${t} — ${String(text).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>`;log.scrollTop=log.scrollHeight;}
 }
-function rb(p){const el=R('#renderBar');if(el)el.style.width=Math.max(0,Math.min(100,p))+'%';}
+function rb(p){const v=Math.max(0,Math.min(100,p));const el=R('#renderBar');if(el)el.style.width=v+'%';const a=R('#autoBar');if(a && v>60)a.style.width=(60+v*.4)+'%';}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function loadFFmpeg(){
@@ -334,8 +346,8 @@ async function clean(ffmpeg,names){
 
 async function createFinalVideo(){
   const btn=R('#finalRender');
-  if(btn.disabled)return;
-  btn.disabled=true;rb(1);
+  if(btn?.disabled)return false;
+  if(btn)btn.disabled=true;rb(1);
 
   let generatedUrl=null;
   try{
@@ -445,7 +457,7 @@ async function createFinalVideo(){
     rs('❌ '+(err?.message||err),'err');
     throw err;
   }finally{
-    btn.disabled=false;
+    if(btn)btn.disabled=false;
   }
 }
 
@@ -548,37 +560,55 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 (function(){
   const A=s=>document.querySelector(s);
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  let autoRunning=false;
 
   function safeFileName(name){
-    name=(name||'documental').trim();
-    name=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    name=name.replace(/[<>:"/\\|?*\x00-\x1F]/g,'');
-    name=name.replace(/\s+/g,' ').trim();
-    name=name.replace(/[. ]+$/g,'');
-    if(!name)name='documental';
-    return name.slice(0,120)+'.mp4';
+    name=(name||'documental').trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g,'')
+      .replace(/\s+/g,' ').trim()
+      .replace(/[. ]+$/g,'');
+    return (name||'documental').slice(0,120)+'.mp4';
   }
 
   function ast(text,cls='mut'){
     const el=A('#autoStatus');
     if(el){el.textContent=text;el.className='status '+cls;}
+    log(text);
   }
   function abar(p){
     const el=A('#autoBar');
     if(el)el.style.width=Math.max(0,Math.min(100,p))+'%';
+  }
+  function log(text){
+    const el=A('#liveLog'); if(!el)return;
+    const t=new Date().toLocaleTimeString();
+    el.innerHTML += `<div>${t} — ${String(text).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>`;
+    el.scrollTop=el.scrollHeight;
+  }
+  function step(id,state,text){
+    const el=A('#'+id); if(!el)return;
+    el.classList.remove('active','done','err');
+    if(state)el.classList.add(state);
+    const small=el.querySelector('small'); if(small&&text)small.textContent=text;
+  }
+  function resetSteps(){
+    [['stepTxt','Archivo cargado'],['stepScenes','En espera'],['stepVoice','En espera'],['stepRender','En espera'],['stepDone','En espera']]
+      .forEach(([id,t],i)=>step(id,i===0?'done':'',t));
+    const l=A('#liveLog');if(l)l.innerHTML='';
+    abar(0);
   }
 
   async function parseTxt(file){
     const text=await file.text();
     const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
     const lines=clean.split('\n');
-    let firstIndex=lines.findIndex(x=>x.trim().length>0);
-    if(firstIndex<0)throw new Error('El archivo está vacío.');
+    const first=lines.findIndex(x=>x.trim());
+    if(first<0)throw Error('El archivo está vacío.');
 
-    const title=lines[firstIndex].trim();
-    const script=lines.slice(firstIndex+1).join('\n').trim();
-
-    if(!script)throw new Error('El .txt tiene título, pero no contiene guion después de la primera línea.');
+    const title=lines[first].trim();
+    const script=lines.slice(first+1).join('\n').trim();
+    if(!script)throw Error('El TXT tiene título, pero no guion después de la primera línea.');
 
     A('#videoTitle').value=title;
     A('#downloadName').value=safeFileName(title);
@@ -586,108 +616,102 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     window.documentalVideoTitle=title;
     window.documentalDownloadName=safeFileName(title);
 
-    const autoBtn=A('#autoCreate');
-    if(autoBtn)autoBtn.disabled=false;
-    ast('✅ TXT cargado. Iniciando creación automática…','ok');
-    abar(0);
+    resetSteps();
+    step('stepTxt','done','TXT leído');
+    ast('TXT cargado. Iniciando proceso completo…','ok');
 
-    // Solo subir el TXT: el proceso completo empieza automáticamente.
-    setTimeout(()=>{
-      if(typeof window.documentalAutoCreate==='function'){
-        window.documentalAutoCreate();
-      }
-    },250);
+    const b=A('#autoCreate');if(b)b.disabled=false;
+    setTimeout(()=>window.documentalAutoCreate?.(),200);
   }
 
   A('#txtFile')?.addEventListener('change',async e=>{
-    const file=e.target.files?.[0];
-    if(!file)return;
     try{
-      if(!/\.txt$/i.test(file.name) && file.type!=='text/plain'){
-        throw new Error('Sube un archivo .txt.');
-      }
+      const file=e.target.files?.[0];
+      if(!file)return;
+      if(!/\.txt$/i.test(file.name) && file.type!=='text/plain')throw Error('Sube un archivo .txt.');
       await parseTxt(file);
     }catch(err){
-      A('#autoCreate').disabled=true;
       ast('❌ '+(err?.message||err),'err');
+      step('stepTxt','err','Error');
     }
   });
 
-  async function runExistingSceneAnalysis(){
-    if(typeof window.documentalAnalyzeScenes!=='function'){
-      throw new Error('El motor interno de escenas todavía no está disponible.');
-    }
-
-    // Call the real scene-generation function directly; no hidden button is needed.
+  async function makeScenes(){
+    step('stepScenes','active','Analizando y buscando clips');
+    ast('1/4 Gemini analiza el guion y Pexels/Pixabay buscan los clips…');
+    abar(10);
+    if(typeof window.documentalAnalyzeScenes!=='function')throw Error('Motor de escenas no disponible.');
     await window.documentalAnalyzeScenes();
-
-    const start=Date.now();
-    while(Date.now()-start<180000){
-      const scenes=[...document.querySelectorAll('#scenes .scene')];
-      if(scenes.length>0){
-        // Accept the scene once every card has a usable clip URL.
-        const ready=scenes.every(el=>{
-          if(el.dataset.clipUrl)return true;
-          const v=el.querySelector('video');
-          if(v?.src){el.dataset.clipUrl=v.src;return true;}
-          return false;
-        });
-        if(ready)return scenes;
+    const scenes=[...document.querySelectorAll('#scenes .scene')];
+    if(!scenes.length)throw Error('No se generaron escenas.');
+    for(const el of scenes){
+      if(!el.dataset.clipUrl){
+        const v=el.querySelector('video');
+        if(v?.src)el.dataset.clipUrl=v.src;
       }
-      await wait(300);
+      if(!el.dataset.clipUrl)throw Error('Una escena terminó sin clip.');
     }
-    throw new Error('Las escenas no terminaron de prepararse.');
+    step('stepScenes','done',`${scenes.length} escenas listas`);
+    abar(48);
+    return scenes;
   }
 
-  let autoRunning=false;
+  async function makeVoice(){
+    step('stepVoice','active','Generando narración');
+    ast('2/4 Kokoro está generando la narración…');
+    abar(Math.max(22,parseFloat(A('#autoBar')?.style.width)||22));
+    window.documentalFactoryAudioBlob=null;
+    window.documentalFactoryAudioMeta=null;
+    if(typeof window.generateDocumentalVoice!=='function')throw Error('Motor Kokoro no disponible.');
+    await window.generateDocumentalVoice();
+    if(!window.documentalFactoryAudioBlob)throw Error('Kokoro terminó sin crear audio.');
+    step('stepVoice','done',`Voz lista${window.documentalFactoryAudioMeta?.seconds?' · '+window.documentalFactoryAudioMeta.seconds+' s':''}`);
+    abar(60);
+    return window.documentalFactoryAudioBlob;
+  }
+
+  async function renderFinal(){
+    step('stepRender','active','Renderizando MP4');
+    ast('3/4 FFmpeg está creando el video final con voz y música…');
+    abar(66);
+    if(typeof window.createDocumentalFinalVideo!=='function')throw Error('Motor FFmpeg no disponible.');
+    const ok=await window.createDocumentalFinalVideo();
+    if(ok!==true)throw Error('El render no confirmó que terminó correctamente.');
+    step('stepRender','done','MP4 terminado');
+    step('stepDone','done',window.documentalDownloadName||'Descargado');
+    abar(100);
+    ast('✅ Video terminado y descarga iniciada.','ok');
+  }
+
   async function autoCreateAll(){
-    const btn=A('#autoCreate');
     if(autoRunning)return;
     autoRunning=true;
-    if(btn)btn.disabled=true;
+    const btn=A('#autoCreate'); if(btn)btn.disabled=true;
 
     try{
-      if(!(A('#script')?.value||'').trim())throw new Error('Primero sube el archivo .txt.');
-      if(!(A('#gemini')?.value||'').trim())throw new Error('Falta Gemini API. Guárdala en configuración.');
-      if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw new Error('Falta Pexels o Pixabay API.');
+      const script=(A('#script')?.value||'').trim();
+      if(!script)throw Error('Primero sube un TXT.');
+      if(!(A('#gemini')?.value||'').trim())throw Error('Falta Gemini API.');
+      if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw Error('Falta Pexels o Pixabay API.');
 
-      // Borra audio anterior para que cada TXT genere una narración nueva.
-      window.documentalFactoryAudioBlob=null;
-      window.documentalFactoryAudioMeta=null;
+      // Start Kokoro voice and visual scene creation together.
+      // This makes voice generation visibly active immediately and saves time.
+      const voicePromise=makeVoice();
+      const scenesPromise=makeScenes();
 
-      ast('1/4 Analizando guion y buscando clips…');
-      abar(8);
+      await Promise.all([voicePromise,scenesPromise]);
 
-      const scenes=await runExistingSceneAnalysis();
-      abar(42);
+      ast('Voz y escenas listas. Iniciando render automáticamente…','ok');
+      await wait(200);
+      await renderFinal();
 
-      ast(`2/4 ${scenes.length} escenas listas. Generando voz Kokoro…`);
-      if(!window.documentalFactoryAudioBlob){
-        const result=await window.generateDocumentalVoice?.();
-        if(!window.documentalFactoryAudioBlob)throw new Error('Kokoro no pudo generar la voz.');
-      }
-      abar(60);
-
-      ast('3/4 Voz lista. Preparando render final con música documental…');
-      await wait(250);
-      abar(68);
-
-      if(typeof window.createDocumentalFinalVideo!=='function'){
-        throw new Error('El motor de render todavía no está disponible.');
-      }
-
-      const ok=await window.createDocumentalFinalVideo();
-      if(ok!==true){
-        // createDocumentalFinalVideo handles its own errors; give a useful fallback.
-        const txt=A('#renderStatus')?.textContent||'';
-        if(/❌/.test(txt))throw new Error(txt.replace(/^❌\s*/,''));
-      }
-
-      abar(100);
-      ast('✅ Video terminado y descargado automáticamente.','ok');
     }catch(err){
       console.error(err);
-      ast('❌ '+(err?.message||err),'err');
+      const msg=err?.message||String(err);
+      ast('❌ '+msg,'err');
+      if(A('#stepVoice')?.classList.contains('active'))step('stepVoice','err','Error');
+      if(A('#stepScenes')?.classList.contains('active'))step('stepScenes','err','Error');
+      if(A('#stepRender')?.classList.contains('active'))step('stepRender','err','Error');
     }finally{
       autoRunning=false;
       if(btn)btn.disabled=false;
@@ -697,25 +721,18 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
   window.documentalAutoCreate=autoCreateAll;
   A('#autoCreate')?.addEventListener('click',autoCreateAll);
 
-  // Hide the old manual workflow controls but keep them in the DOM for the automation.
+  // Keep advanced/manual controls visually out of the way, but never disable them.
   window.addEventListener('load',()=>{
     setTimeout(()=>{
-      const allButtons=[...document.querySelectorAll('button')];
-      allButtons.forEach(b=>{
+      [...document.querySelectorAll('button')].forEach(b=>{
         const t=(b.textContent||'').toLowerCase();
-        if(
-          (t.includes('analizar') && !b.matches('#autoCreate')) ||
-          (t.includes('generar voz')) ||
-          (t.includes('crear y descargar video final'))
-        ){
+        if((t.includes('generar voz')) || (t.includes('crear y descargar video final'))){
           b.classList.add('hiddenAuto');
         }
       });
-      // Hide manual voice/audio controls but leave status available.
-      const voice=A('#voice')?.closest('.row');
-      if(voice) voice.classList.add('hiddenAuto');
-      const audio=A('#audio'); if(audio) audio.classList.add('hiddenAuto');
-      const aa=A('#audioActions'); if(aa) aa.classList.add('hiddenAuto');
+      const voice=A('#voice')?.closest('.row'); if(voice)voice.classList.add('hiddenAuto');
+      const audio=A('#audio');if(audio)audio.classList.add('hiddenAuto');
+      const aa=A('#audioActions');if(aa)aa.classList.add('hiddenAuto');
     },300);
   });
 })();
