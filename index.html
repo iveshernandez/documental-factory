@@ -879,7 +879,7 @@ async function ai(prompt){
 
   const endpoint='https://openrouter.ai/api/v1/chat/completions';
   const body={
-    model:'openrouter/free',
+    model:'openai/gpt-oss-20b:free',
     messages:[
       {
         role:'system',
@@ -887,7 +887,33 @@ async function ai(prompt){
       },
       {role:'user',content:prompt}
     ],
-    response_format:{type:'json_object'},
+    response_format:{
+      type:'json_schema',
+      json_schema:{
+        name:'documentary_scenes',
+        strict:true,
+        schema:{
+          type:'object',
+          properties:{
+            scenes:{
+              type:'array',
+              items:{
+                type:'object',
+                properties:{
+                  narration:{type:'string'},
+                  query:{type:'string'}
+                },
+                required:['narration','query'],
+                additionalProperties:false
+              }
+            }
+          },
+          required:['scenes'],
+          additionalProperties:false
+        }
+      }
+    },
+    provider:{require_parameters:true},
     temperature:0.2,
     max_tokens:5000,
     stream:false
@@ -934,7 +960,7 @@ async function ai(prompt){
       }
 
       if(res.status===402 || /payment required|insufficient credits/i.test(msg)){
-        throw new Error('OpenRouter indicó un problema de saldo/acceso. El modelo solicitado es openrouter/free.');
+        throw new Error('OpenRouter indicó un problema de saldo/acceso. El modelo solicitado es openai/gpt-oss-20b:free.');
       }
 
       throw new Error('OpenRouter: '+msg);
