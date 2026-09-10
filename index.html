@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Groq + Mezcla PCM v6.3</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Groq + Browser Audio Mix v6.4</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -91,7 +91,7 @@
 </div>
 <div class="row">
   <div><label>Música</label><select id="musicStyle"><option value="asset" selected>Documental original integrada — default</option><option value="generated">Generada localmente — respaldo</option></select></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.24">24%</option><option value="0.34" selected>34%</option><option value="0.42">42%</option><option value="0.50">50%</option></select></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.28">28%</option><option value="0.38" selected>38%</option><option value="0.46">46%</option><option value="0.55">55%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
@@ -494,6 +494,85 @@ function wavFromSamples(samples,sampleRate=24000){
   return new Blob([buffer],{type:'audio/wav'});
 }
 
+
+function wavFromStereo(left,right,sampleRate=44100){
+  const frames=Math.min(left.length,right.length);
+  const buffer=new ArrayBuffer(44+frames*4);
+  const view=new DataView(buffer);
+  const put=(o,s)=>{for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));};
+  put(0,'RIFF'); view.setUint32(4,36+frames*4,true); put(8,'WAVE');
+  put(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+  view.setUint16(22,2,true); view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*4,true); view.setUint16(32,4,true);
+  view.setUint16(34,16,true); put(36,'data'); view.setUint32(40,frames*4,true);
+  let off=44;
+  for(let i=0;i<frames;i++){
+    let l=Math.max(-1,Math.min(1,left[i]));
+    let r=Math.max(-1,Math.min(1,right[i]));
+    view.setInt16(off,l<0?l*32768:l*32767,true); off+=2;
+    view.setInt16(off,r<0?r*32768:r*32767,true); off+=2;
+  }
+  return new Blob([buffer],{type:'audio/wav'});
+}
+
+async function mixNarrationMusicBrowser(voiceBlob,musicBlob,total,musicVol){
+  const sr=44100;
+  const frames=Math.max(1,Math.ceil(total*sr));
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  const decodeCtx=new Ctx();
+  let voiceBuf,musicBuf;
+  try{
+    voiceBuf=await decodeCtx.decodeAudioData((await voiceBlob.arrayBuffer()).slice(0));
+    musicBuf=await decodeCtx.decodeAudioData((await musicBlob.arrayBuffer()).slice(0));
+  }finally{
+    try{await decodeCtx.close();}catch(e){}
+  }
+
+  const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const ctx=new Offline(2,frames,sr);
+
+  const voice=ctx.createBufferSource();
+  voice.buffer=voiceBuf;
+  const vg=ctx.createGain();
+  vg.gain.value=0.94;
+  voice.connect(vg).connect(ctx.destination);
+
+  const music=ctx.createBufferSource();
+  music.buffer=musicBuf;
+  music.loop=true;
+  const mg=ctx.createGain();
+  const fadeIn=Math.min(0.7,total/5);
+  const fadeOut=Math.min(1.0,total/5);
+  mg.gain.setValueAtTime(0,0);
+  mg.gain.linearRampToValueAtTime(musicVol,fadeIn);
+  if(total>fadeOut+0.1){
+    mg.gain.setValueAtTime(musicVol,Math.max(fadeIn,total-fadeOut));
+    mg.gain.linearRampToValueAtTime(0,total);
+  }
+  music.connect(mg).connect(ctx.destination);
+
+  voice.start(0);
+  music.start(0);
+  const rendered=await ctx.startRendering();
+
+  const L=rendered.getChannelData(0);
+  const Rr=rendered.getChannelData(1);
+
+  // Safe normalization/limiting after browser mixing.
+  let peak=0;
+  for(let i=0;i<L.length;i++){
+    const p=Math.max(Math.abs(L[i]),Math.abs(Rr[i]));
+    if(p>peak) peak=p;
+  }
+  const gain=peak>0.96 ? 0.96/peak : 1;
+  const left=new Float32Array(L.length), right=new Float32Array(Rr.length);
+  for(let i=0;i<L.length;i++){
+    left[i]=L[i]*gain;
+    right[i]=Rr[i]*gain;
+  }
+  return wavFromStereo(left,right,sr);
+}
+
 function makeDocumentaryMusic(seconds,style='documentary'){
   const sr=24000,total=Math.max(1,Math.ceil(seconds*sr));
   const a=new Float32Array(total);
@@ -814,52 +893,26 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.34);
+    const musicVol=Number(R('#musicVol')?.value||0.38);
 
-    // v6.3: prepare both audio sources as PCM WAV first.
-    // This avoids browser/FFmpeg.wasm AAC-loop decoding quirks during the final mux.
-    rs('5/5 Preparando música PCM para la mezcla final…');
-    await ffmpeg.exec([
-      '-stream_loop','-1','-i',musicInfo.name,
-      '-t',total.toFixed(3),
-      '-af',`aresample=44100,volume=${musicVol},afade=t=in:st=0:d=0.6,afade=t=out:st=${Math.max(0,total-0.9).toFixed(3)}:d=0.9`,
-      '-ac','2','-ar','44100','-c:a','pcm_s16le','music_full.wav'
-    ]);
+    // v6.4: mix narration + music in the browser FIRST.
+    // FFmpeg receives one finished WAV track, so it cannot drop the music.
+    rs('5/5 Mezclando voz + música directamente en el navegador…');
+    const mixedBlob=await mixNarrationMusicBrowser(voiceBlob,musicBlob,total,musicVol);
+    const mixedBytes=new Uint8Array(await mixedBlob.arrayBuffer());
+    if(mixedBytes.byteLength<100000){
+      throw new Error('La mezcla de audio del navegador quedó vacía.');
+    }
+    await ffmpeg.writeFile('mixed_browser.wav',mixedBytes);
+    rs(`5/5 Mezcla creada (${Math.round(mixedBytes.byteLength/1024)} KB, 44.1 kHz estéreo).`);
 
-    rs('5/5 Preparando narración PCM…');
+    rs('5/5 Insertando la mezcla única en el MP4…');
     await ffmpeg.exec([
-      '-i','voice.wav',
-      '-t',total.toFixed(3),
-      '-af','aresample=44100,volume=0.96',
-      '-ac','2','-ar','44100','-c:a','pcm_s16le','voice_full.wav'
-    ]);
-
-    rs('5/5 Mezclando narración + música…');
-    await ffmpeg.exec([
-      '-i','voice_full.wav','-i','music_full.wav',
-      '-filter_complex',
-      '[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[mix]',
-      '-map','[mix]',
-      '-t',total.toFixed(3),
-      '-ac','2','-ar','44100','-c:a','pcm_s16le','mixed_final.wav'
-    ]);
-
-    rs('5/5 Insertando audio mezclado en el MP4…');
-    await ffmpeg.exec([
-      '-i','joined.mp4','-i','mixed_final.wav',
+      '-i','joined.mp4','-i','mixed_browser.wav',
       '-map','0:v:0','-map','1:a:0',
       '-c:v','copy','-c:a','aac','-b:a','192k','-ar','44100','-ac','2',
       '-t',total.toFixed(3),'-movflags','+faststart','documental_final.mp4'
     ]);
-
-    // Basic runtime check: mixed PCM must not be trivially empty.
-    try{
-      const mixedCheck=await ffmpeg.readFile('mixed_final.wav');
-      if(!mixedCheck || mixedCheck.byteLength<100000) throw new Error('La mezcla de audio quedó vacía.');
-      rs(`5/5 Audio final mezclado correctamente (${Math.round(mixedCheck.byteLength/1024)} KB PCM).`);
-    }catch(checkErr){
-      throw new Error('La mezcla final de narración y música no se creó correctamente: '+checkErr.message);
-    }
     rb(96);
 
     const data=await ffmpeg.readFile('documental_final.mp4');
@@ -883,7 +936,7 @@ async function createFinalVideo(){
     rb(100);
     rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz y música documental. Descarga iniciada.`, 'ok');
 
-    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'documental_final.mp4']);
+    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','documental_final.mp4']);
     return true;
   }catch(err){
     console.error(err);
