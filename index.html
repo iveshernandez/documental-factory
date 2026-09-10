@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.10.1 Alexander Principal</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.10.3 Cola 12</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -10,7 +10,7 @@
 
   <label>Archivo .txt</label>
   <input id="txtFile" type="file" accept=".txt,text/plain" multiple>
-  <div class="tiny" style="margin-top:7px">Puedes seleccionar hasta 6 archivos TXT. Se procesan uno por uno y cada MP4 se descarga por separado.</div>
+  <div class="tiny" style="margin-top:7px">Puedes seleccionar hasta 12 archivos TXT. Se procesan uno por uno y cada MP4 se descarga por separado.</div>
   <div id="queueStatus" class="status mut">Cola: sin archivos.</div>
 
   <div class="row">
@@ -546,6 +546,24 @@ async function loadFFmpeg(){
   });
 
   return ffmpegLoading;
+}
+
+
+async function resetFFmpegAfterVideo(){
+  const old=ffmpegInstance;
+  ffmpegInstance=null;
+  ffmpegLoading=null;
+  if(old){
+    try{
+      // FFmpeg.wasm keeps a large WebAssembly heap. Terminating the worker
+      // releases it so the next documentary starts with fresh memory.
+      old.terminate();
+    }catch(e){
+      console.warn('[FFmpeg] No se pudo terminar el worker:',e);
+    }
+  }
+  // Give the browser a moment to reclaim detached ArrayBuffers/WASM memory.
+  await sleep(250);
 }
 
 function wavFromSamples(samples,sampleRate=24000){
@@ -1099,16 +1117,24 @@ async function createFinalVideo(){
     a.remove();
 
     rb(100);
-    rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada.`, 'ok');
+    rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
 
     await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
     return true;
   }catch(err){
     console.error(err);
-    rs('❌ '+(err?.message||err),'err');
+    const msg=(err?.message||String(err));
+    if(/memory access out of bounds|out of memory|abort\(memory/i.test(msg)){
+      rs('❌ FFmpeg agotó memoria temporal. Reiniciando el motor para que la cola pueda continuar…','err');
+    }else{
+      rs('❌ '+msg,'err');
+    }
     throw err;
   }finally{
     if(btn)btn.disabled=false;
+    // IMPORTANT: one fresh FFmpeg worker per documentary.
+    // Prevents cumulative WASM memory growth across a queue of 6.
+    try{ await resetFFmpegAfterVideo(); }catch(e){ console.warn('[FFmpeg reset]',e); }
   }
 }
 
@@ -1663,7 +1689,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     try{
       const files=[...(e.target.files||[])];
       if(!files.length)return;
-      if(files.length>6)throw Error('Selecciona máximo 6 archivos TXT por tanda.');
+      if(files.length>12)throw Error('Selecciona máximo 12 archivos TXT por tanda.');
       const invalid=files.find(f=>!/\.txt$/i.test(f.name) && f.type!=='text/plain');
       if(invalid)throw Error(`El archivo ${invalid.name} no es un TXT válido.`);
       await processTxtQueue(files);
