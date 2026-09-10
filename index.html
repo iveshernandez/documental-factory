@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.7.1</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.7.2 Voces</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -67,8 +67,16 @@
 <div class="actions"><button class="sec" id="save">Guardar APIs</button><button class="danger" id="erase">Eliminar</button></div><div id="apiSavedStatus" class="tiny" style="margin-top:8px"></div><p class="tiny">Las claves se guardan solo en localStorage de este navegador. Cada usuario usa sus propias APIs.</p>
 <hr style="border:0;border-top:1px solid var(--l);margin:18px 0">
 <h2>3. Voz — español latino</h2>
-<p class="tiny">Motor: Transformers.js + VITS/MMS. Funciona directamente en el navegador, sin Piper, sin /ort/, sin vercel.json y sin configurar WASM manualmente.</p>
-<div class="tiny"><b>Voz fija:</b> Español MMS estable. Se usa automáticamente para todos los videos.</div>
+<p class="tiny">Motor: Transformers.js + VITS/MMS. El programa sigue funcionando exactamente igual; solo puedes elegir una variante de narración antes de generar.</p>
+<label>Voz</label>
+<select id="voicePreset">
+  <option value="original" selected>1. Original MMS</option>
+  <option value="documental">2. Documental grave</option>
+  <option value="suave">3. Grave suave</option>
+  <option value="clara">4. Clara y ligera</option>
+  <option value="profunda">5. Profunda lenta</option>
+</select>
+<div class="tiny" style="margin-top:7px">Todas usan el mismo modelo español local de esta versión, con distintos perfiles de tono y ritmo. Cuando elijas una, luego puedo dejarla fija por defecto.</div>
 <div class="actions"><button class="pri" id="makeVoice">🎙️ Generar voz</button></div>
 <div id="ttsStatus" class="status mut">Motor de voz listo para cargar cuando subas el TXT.</div>
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
@@ -233,11 +241,38 @@ async function getBlobSeconds(blob){
   });
 }
 
+
+function applyVoicePreset(audio,preset){
+  const profiles={
+    original:{rate:1.00,gain:1.00},
+    documental:{rate:0.93,gain:1.04},
+    suave:{rate:0.97,gain:0.98},
+    clara:{rate:1.05,gain:1.00},
+    profunda:{rate:0.89,gain:1.06}
+  };
+  const p=profiles[preset]||profiles.original;
+  if(Math.abs(p.rate-1)<0.001 && Math.abs(p.gain-1)<0.001) return audio;
+
+  // Simple resampling profile: changes timbre/pitch and reading pace without adding APIs.
+  const outLen=Math.max(1,Math.round(audio.length/p.rate));
+  const out=new Float32Array(outLen);
+  for(let i=0;i<outLen;i++){
+    const pos=i*p.rate;
+    const i0=Math.floor(pos);
+    const i1=Math.min(audio.length-1,i0+1);
+    const f=pos-i0;
+    const s=(audio[i0]||0)*(1-f)+(audio[i1]||0)*f;
+    out[i]=Math.max(-1,Math.min(1,s*p.gain));
+  }
+  return out;
+}
+
 async function generateVoice(){
   const text=(q('#script')?.value||'').trim();
   if(!text)throw new Error('El guion está vacío.');
 
   const voice='Xenova/mms-tts-spa';
+  const preset=(q('#voicePreset')?.value||'original');
 
   try{
     const synth=await ensureSynth(voice);
@@ -249,12 +284,13 @@ async function generateVoice(){
     let sampleRate=16000;
 
     for(let i=0;i<chunks.length;i++){
-      ttsStatus(`Generando voz fija ${i+1}/${chunks.length}…`);
+      ttsStatus(`Generando voz ${i+1}/${chunks.length} · perfil ${q('#voicePreset')?.selectedOptions?.[0]?.textContent||'Original MMS'}…`);
       const out=await synth(chunks[i]);
       if(!out?.audio?.length)throw new Error(`La voz no devolvió audio en el bloque ${i+1}.`);
       sampleRate=Number(out.sampling_rate||sampleRate);
 
-      const audio=out.audio instanceof Float32Array ? out.audio : new Float32Array(out.audio);
+      const rawAudio=out.audio instanceof Float32Array ? out.audio : new Float32Array(out.audio);
+      const audio=applyVoicePreset(rawAudio,preset);
       parts.push(audio); total+=audio.length;
 
       // pausa natural de 90 ms entre bloques
@@ -290,6 +326,7 @@ async function generateVoice(){
       engine:'transformersjs-vits',
       language:'es',
       voice,
+      preset,
       seconds:Number(seconds)||null,
       samplingRate:sampleRate
     };
@@ -1047,6 +1084,11 @@ window.addEventListener('load',()=>{
 
 <script>
 const $=s=>document.querySelector(s),keys=['groq','pexels','pixabay'];keys.forEach(k=>{const el=$('#'+k);if(el)el.value=localStorage.getItem('df_'+k)||''});
+const voicePresetEl=$('#voicePreset');
+if(voicePresetEl){
+  voicePresetEl.value=localStorage.getItem('df_voicePreset')||'original';
+  voicePresetEl.addEventListener('change',()=>localStorage.setItem('df_voicePreset',voicePresetEl.value));
+}
 const groqEl=$('#groq');
 if(groqEl && groqEl.value.trim()){
   setTimeout(()=>{const s=$('#apiSavedStatus'); if(s)s.textContent='✅ Groq API cargada desde este navegador.';},0);
