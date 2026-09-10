@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Groq GPT-OSS 120B v4.3</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Groq + Mezcla PCM v6.3</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -91,7 +91,7 @@
 </div>
 <div class="row">
   <div><label>Música</label><select id="musicStyle"><option value="asset" selected>Documental original integrada — default</option><option value="generated">Generada localmente — respaldo</option></select></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.22">22%</option><option value="0.30" selected>30%</option><option value="0.38">38%</option><option value="0.46">46%</option></select></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.24">24%</option><option value="0.34" selected>34%</option><option value="0.42">42%</option><option value="0.50">50%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
@@ -814,15 +814,52 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.30);
+    const musicVol=Number(R('#musicVol')?.value||0.34);
+
+    // v6.3: prepare both audio sources as PCM WAV first.
+    // This avoids browser/FFmpeg.wasm AAC-loop decoding quirks during the final mux.
+    rs('5/5 Preparando música PCM para la mezcla final…');
     await ffmpeg.exec([
-      '-i','joined.mp4','-i','voice.wav','-stream_loop','-1','-i',musicInfo.name,
-      '-filter_complex',
-      `[1:a]aresample=44100,volume=0.96[voice];[2:a]aresample=44100,volume=${musicVol},atrim=0:${total.toFixed(3)},afade=t=in:st=0:d=0.6,afade=t=out:st=${Math.max(0,total-0.9).toFixed(3)}:d=0.9[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0,alimiter=limit=0.95[a]`,
-      '-map','0:v:0','-map','[a]',
-      '-c:v','copy','-c:a','aac','-b:a','192k',
-      '-shortest','-movflags','+faststart','documental_final.mp4'
+      '-stream_loop','-1','-i',musicInfo.name,
+      '-t',total.toFixed(3),
+      '-af',`aresample=44100,volume=${musicVol},afade=t=in:st=0:d=0.6,afade=t=out:st=${Math.max(0,total-0.9).toFixed(3)}:d=0.9`,
+      '-ac','2','-ar','44100','-c:a','pcm_s16le','music_full.wav'
     ]);
+
+    rs('5/5 Preparando narración PCM…');
+    await ffmpeg.exec([
+      '-i','voice.wav',
+      '-t',total.toFixed(3),
+      '-af','aresample=44100,volume=0.96',
+      '-ac','2','-ar','44100','-c:a','pcm_s16le','voice_full.wav'
+    ]);
+
+    rs('5/5 Mezclando narración + música…');
+    await ffmpeg.exec([
+      '-i','voice_full.wav','-i','music_full.wav',
+      '-filter_complex',
+      '[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[mix]',
+      '-map','[mix]',
+      '-t',total.toFixed(3),
+      '-ac','2','-ar','44100','-c:a','pcm_s16le','mixed_final.wav'
+    ]);
+
+    rs('5/5 Insertando audio mezclado en el MP4…');
+    await ffmpeg.exec([
+      '-i','joined.mp4','-i','mixed_final.wav',
+      '-map','0:v:0','-map','1:a:0',
+      '-c:v','copy','-c:a','aac','-b:a','192k','-ar','44100','-ac','2',
+      '-t',total.toFixed(3),'-movflags','+faststart','documental_final.mp4'
+    ]);
+
+    // Basic runtime check: mixed PCM must not be trivially empty.
+    try{
+      const mixedCheck=await ffmpeg.readFile('mixed_final.wav');
+      if(!mixedCheck || mixedCheck.byteLength<100000) throw new Error('La mezcla de audio quedó vacía.');
+      rs(`5/5 Audio final mezclado correctamente (${Math.round(mixedCheck.byteLength/1024)} KB PCM).`);
+    }catch(checkErr){
+      throw new Error('La mezcla final de narración y música no se creó correctamente: '+checkErr.message);
+    }
     rb(96);
 
     const data=await ffmpeg.readFile('documental_final.mp4');
