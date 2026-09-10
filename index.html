@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.8 Cola 6</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.9 Clips Precisos</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -84,7 +84,7 @@
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
 <div id="audioActions" class="actions"></div>
 </section></div>
-<section class="card"><h2>4. Escenas encontradas</h2><div class="mut tiny">Revisa los clips. Usa Cambiar escena si alguno no te gusta.</div><div id="scenes" class="scenes"></div>
+<section class="card"><h2>4. Escenas encontradas</h2><div class="mut tiny">Búsqueda precisa: Groq crea 3 búsquedas en inglés por escena, mantiene el sujeto principal y prioriza la acción exacta de la narración. Usa Cambiar escena si alguno no te gusta.</div><div id="scenes" class="scenes"></div>
 
 <div class="renderbox">
 <h2 style="margin-top:0">5. Render final</h2>
@@ -1139,9 +1139,15 @@ async function ai(prompt){
                 type:'object',
                 properties:{
                   narration:{type:'string'},
-                  query:{type:'string'}
+                  query:{type:'string'},
+                  queries:{
+                    type:'array',
+                    items:{type:'string'},
+                    minItems:3,
+                    maxItems:3
+                  }
                 },
-                required:['narration','query'],
+                required:['narration','query','queries'],
                 additionalProperties:false
               }
             }
@@ -1233,7 +1239,7 @@ function json(t){
       for(const key of ['scenes','escenas','items','results','data']){
         if(Array.isArray(value[key]))return value[key];
       }
-      if(value.narration || value.query || value.narracion || value.busqueda)return [value];
+      if(value.narration || value.query || value.queries || value.narracion || value.busqueda)return [value];
     }
     return null;
   };
@@ -1280,8 +1286,138 @@ function json(t){
   console.warn('Respuesta Groq no parseable:', original);
   throw Error('Groq respondió, pero el formato de escenas no se pudo interpretar.');
 }
-async function clip(q,page=1){let k=($('#pexels')?.value||'').trim();if(k){try{let r=await fetch(`https://api.pexels.com/v1/videos/search?query=${encodeURIComponent(q)}&orientation=portrait&per_page=12&page=${page}`,{headers:{Authorization:k}});if(r.ok){let d=await r.json(),v=d.videos?.[Math.min(page-1,(d.videos?.length||1)-1)];if(v){let f=(v.video_files||[]).filter(x=>x.link).sort((a,b)=>Math.abs((a.width||720)-720)-Math.abs((b.width||720)-720))[0];if(f)return{url:f.link,provider:'Pexels'}}}}catch(x){}}k=($('#pixabay')?.value||'').trim();if(k){try{let r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&per_page=10&page=${page}&safesearch=true`);if(r.ok){let d=await r.json(),v=d.hits?.[0],f=v&&(v.videos?.medium||v.videos?.small||v.videos?.large);if(f?.url)return{url:f.url,provider:'Pixabay'}}}catch(x){}}return null}
-function render(s,c,i){let a=document.createElement('article');a.className='scene';a.dataset.q=s.query;a.dataset.narration=s.narration||'';a.dataset.page=1;if(c?.url)a.dataset.clipUrl=c.url;a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div><div class="body"><b>ESCENA ${i+1}</b><p class="narr">${e(s.narration)}</p><p class="q">🔎 ${e(s.query)}</p><p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p><button class="sec change">↻ Cambiar escena</button></div>`;const scenesRoot=$('#scenes');if(!scenesRoot)throw Error('No existe el contenedor de escenas.');scenesRoot.appendChild(a);const changeBtn=a.querySelector('.change');if(changeBtn)changeBtn.onclick=async()=>{let b=a.querySelector('.change');b.disabled=true;b.textContent='Buscando...';let p=++a.dataset.page,c2=await clip(a.dataset.q,p);a.querySelector('.media').innerHTML=c2?`<video muted loop controls playsinline src="${e(c2.url)}"></video>`:'<span class="err">Sin otro clip</span>';if(c2?.url)a.dataset.clipUrl=c2.url;else delete a.dataset.clipUrl;a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';b.disabled=false;b.textContent='↻ Cambiar escena'}}
+function normalizeSceneQueries(scene){
+  const raw=[
+    ...(Array.isArray(scene?.queries)?scene.queries:[]),
+    scene?.query
+  ].map(x=>String(x||'').trim()).filter(Boolean);
+
+  const seen=new Set();
+  const out=[];
+  for(const q of raw){
+    const k=q.toLowerCase();
+    if(!seen.has(k)){seen.add(k);out.push(q);}
+  }
+  return out.slice(0,3);
+}
+
+async function pexelsClip(search,choice=0){
+  const k=($('#pexels')?.value||'').trim();
+  if(!k)return null;
+  try{
+    const r=await fetch(`https://api.pexels.com/v1/videos/search?query=${encodeURIComponent(search)}&orientation=portrait&per_page=15&page=1`,{
+      headers:{Authorization:k}
+    });
+    if(!r.ok)return null;
+    const d=await r.json();
+    const videos=(d.videos||[]).filter(Boolean);
+    if(!videos.length)return null;
+
+    // Pexels already ranks results by relevance. Keep the first choices first.
+    const v=videos[Math.min(choice,videos.length-1)];
+    const files=(v.video_files||[]).filter(x=>x.link);
+    if(!files.length)return null;
+
+    // Prefer vertical/near-720 sources, then reasonable file size/resolution.
+    files.sort((a,b)=>{
+      const ap=(a.height||0)>(a.width||0)?0:1;
+      const bp=(b.height||0)>(b.width||0)?0:1;
+      if(ap!==bp)return ap-bp;
+      return Math.abs((a.width||720)-720)-Math.abs((b.width||720)-720);
+    });
+    return {url:files[0].link,provider:'Pexels',search};
+  }catch(_){return null;}
+}
+
+async function pixabayClip(search,choice=0){
+  const k=($('#pixabay')?.value||'').trim();
+  if(!k)return null;
+  try{
+    const r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(search)}&per_page=15&page=1&safesearch=true`);
+    if(!r.ok)return null;
+    const d=await r.json();
+    const hits=(d.hits||[]).filter(Boolean);
+    if(!hits.length)return null;
+    const v=hits[Math.min(choice,hits.length-1)];
+    const f=v&&(v.videos?.medium||v.videos?.small||v.videos?.large);
+    if(f?.url)return {url:f.url,provider:'Pixabay',search};
+  }catch(_){}
+  return null;
+}
+
+async function clipForScene(scene,attempt=0){
+  const queries=normalizeSceneQueries(scene);
+  if(!queries.length)return null;
+
+  // "Cambiar escena" walks through nearby candidates first, then alternate searches.
+  const queryIndex=Math.floor(attempt/3)%queries.length;
+  const candidateIndex=attempt%3;
+
+  // Initial pass: try the most exact query first; if it has no result, use alternatives.
+  if(attempt===0){
+    for(const search of queries){
+      let found=await pexelsClip(search,0);
+      if(found)return found;
+      found=await pixabayClip(search,0);
+      if(found)return found;
+    }
+    return null;
+  }
+
+  const search=queries[queryIndex];
+  return (await pexelsClip(search,candidateIndex))
+      || (await pixabayClip(search,candidateIndex));
+}
+
+function render(s,c,i){
+  const queries=normalizeSceneQueries(s);
+  let a=document.createElement('article');
+  a.className='scene';
+  a.dataset.q=queries[0]||s.query||'';
+  a.dataset.queries=JSON.stringify(queries);
+  a.dataset.narration=s.narration||'';
+  a.dataset.searchAttempt=0;
+  if(c?.url)a.dataset.clipUrl=c.url;
+
+  a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div>
+  <div class="body">
+    <b>ESCENA ${i+1}</b>
+    <p class="narr">${e(s.narration)}</p>
+    <p class="q">🔎 ${e(c?.search||queries[0]||s.query)}</p>
+    <p class="provider">${c?'Fuente: '+c.provider:'Sin resultado'}</p>
+    <button class="sec change">↻ Cambiar escena</button>
+  </div>`;
+
+  const scenesRoot=$('#scenes');
+  if(!scenesRoot)throw Error('No existe el contenedor de escenas.');
+  scenesRoot.appendChild(a);
+
+  const changeBtn=a.querySelector('.change');
+  if(changeBtn)changeBtn.onclick=async()=>{
+    const b=a.querySelector('.change');
+    b.disabled=true;b.textContent='Buscando...';
+
+    const sceneData={
+      narration:a.dataset.narration||'',
+      query:a.dataset.q||'',
+      queries:JSON.parse(a.dataset.queries||'[]')
+    };
+    const attempt=Number(a.dataset.searchAttempt||0)+1;
+    a.dataset.searchAttempt=String(attempt);
+
+    const c2=await clipForScene(sceneData,attempt);
+    a.querySelector('.media').innerHTML=c2
+      ? `<video muted loop controls playsinline src="${e(c2.url)}"></video>`
+      : '<span class="err">Sin otro clip</span>';
+
+    if(c2?.url)a.dataset.clipUrl=c2.url; else delete a.dataset.clipUrl;
+    a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';
+    a.querySelector('.q').textContent='🔎 '+(c2?.search||sceneData.queries[attempt%Math.max(1,sceneData.queries.length)]||sceneData.query);
+
+    b.disabled=false;b.textContent='↻ Cambiar escena';
+  };
+}
+
 async function go(){
   const script=(document.querySelector('#script')?.value||'').trim();
   const n=Number(document.querySelector('#sceneCount')?.value||8);
@@ -1292,12 +1428,35 @@ async function go(){
   if(!script)throw Error('El guion está vacío.');
   if(!pex && !pix)throw Error('Falta la API de Pexels o Pixabay.');
 
-  st('Groq está dividiendo el guion…');
-  const prompt=`Divide este guion en exactamente ${n} escenas visuales para un video vertical.
-Devuelve SOLO un objeto JSON válido con esta forma:
-{"scenes":[{"narration":"fragmento del guion","query":"búsqueda visual EN INGLÉS de 2 a 6 palabras para encontrar metraje real"}]}.
-El array "scenes" debe contener exactamente ${n} objetos.
-La query debe describir algo concreto y visible. Prioriza primeros planos, movimiento, comportamiento real, naturaleza cinematográfica y variedad de encuadres. Evita repetir la misma búsqueda.
+  st('Groq está dividiendo el guion y creando búsquedas visuales precisas…');
+  const title=(document.querySelector('#videoTitle')?.value||'').trim();
+  const prompt=`Actúa como editor de archivo visual para un documental vertical.
+Divide el guion en exactamente ${n} escenas y crea búsquedas de stock que coincidan LO MÁS POSIBLE con lo narrado.
+
+Devuelve SOLO JSON válido con esta forma:
+{"scenes":[{"narration":"fragmento exacto del guion","query":"mejor búsqueda principal en inglés","queries":["búsqueda exacta 1","alternativa 2","alternativa 3"]}]}.
+
+REGLAS OBLIGATORIAS:
+- El array "scenes" debe contener exactamente ${n} objetos.
+- Cada escena debe tener exactamente 3 búsquedas diferentes en "queries".
+- "query" debe ser idéntica a la primera búsqueda de "queries".
+- Todas las búsquedas deben estar EN INGLÉS y tener idealmente entre 4 y 8 palabras.
+- Primero identifica el SUJETO PRINCIPAL del documental usando el título y el guion.
+- Si la escena sigue hablando de ese sujeto, INCLUYE el sujeto principal en las 3 búsquedas. No lo reemplaces por un objeto secundario.
+- Describe la ACCIÓN exacta de la narración: carrying, hiding, hunting, swimming, walking, feeding, attacking, building, using shells, etc.
+- Añade el ENTORNO cuando ayude: underwater, ocean floor, jungle, desert, snow, city, workshop, etc.
+- No uses búsquedas genéricas como "shell", "ocean", "animal", "danger", "nature", "coconut" si el sujeto real puede incluirse.
+- Evita personas, objetos o especies distintas salvo que la narración realmente hable de ellas.
+- Usa nombres comunes que funcionen bien en Pexels/Pixabay. Puedes añadir una especie concreta si aumenta la precisión.
+- Alternativa 1: sujeto + acción exacta + entorno.
+- Alternativa 2: sujeto + comportamiento/objeto clave.
+- Alternativa 3: sujeto + plano visual útil (close up, underwater, wildlife, macro, aerial, etc.).
+- Mantén variedad de encuadres entre escenas, pero NUNCA sacrifiques la coincidencia con la narración solo por variar.
+- No inventes una acción que no esté en la narración.
+
+TÍTULO:
+${title}
+
 GUION:
 ${script}`;
 
@@ -1309,10 +1468,14 @@ ${script}`;
   scenesEl.innerHTML='';
 
   for(let i=0;i<arr.length;i++){
-    if(!arr[i]?.query)throw Error(`La escena ${i+1} no contiene búsqueda visual.`);
-    st(`Buscando clip ${i+1} de ${arr.length}: ${arr[i].query}`);
-    const found=await clip(arr[i].query);
-    if(!found)throw Error(`No encontré un clip para la escena ${i+1}: ${arr[i].query}`);
+    const queries=normalizeSceneQueries(arr[i]);
+    if(!queries.length)throw Error(`La escena ${i+1} no contiene búsquedas visuales.`);
+    arr[i].query=queries[0];
+    arr[i].queries=queries;
+
+    st(`Buscando clip ${i+1} de ${arr.length}: ${queries[0]}`);
+    const found=await clipForScene(arr[i],0);
+    if(!found)throw Error(`No encontré un clip para la escena ${i+1}. Probé: ${queries.join(' | ')}`);
     render(arr[i],found,i);
   }
   st(`✅ ${arr.length} escenas listas.`,'ok');
