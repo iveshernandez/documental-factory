@@ -90,14 +90,14 @@
   <div><label>Subtítulos</label><select id="subtitles"><option value="yes" selected>Activados</option><option value="no">Desactivados</option></select></div>
 </div>
 <div class="row">
-  <div><label>Música</label><select id="musicStyle"><option value="pixabay" selected>Pixabay documental — default</option><option value="generated">Generada localmente — respaldo</option></select></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.14">14%</option><option value="0.18" selected>18%</option><option value="0.22">22%</option><option value="0.28">28%</option></select></div>
+  <div><label>Música</label><select id="musicStyle"><option value="embedded" selected>Documental integrada — default</option><option value="nature">Naturaleza suave</option><option value="mystery">Misterio suave</option></select></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.16">16%</option><option value="0.22" selected>22%</option><option value="0.28">28%</option><option value="0.34">34%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
 <div class="progress"><div id="renderBar"></div></div>
 <video id="finalPreview" class="finalvideo" controls playsinline></video>
-<p class="tiny">La opción Pixabay usa <b>documentary_music.mp3</b> desde tu mismo proyecto. Si el archivo no existe, el programa usa automáticamente la música generada de respaldo. Título y subtítulos se incrustan como imagen para evitar problemas de fuentes en FFmpeg.</p>
+<p class="tiny">La música documental viene integrada en el propio programa: no necesita MP3 externo, no consume datos y añade muy poco peso al HTML. Se genera en memoria al crear el video. Título y subtítulos se incrustan como imagen para evitar problemas de fuentes en FFmpeg.</p>
 </div>
 </section></div>
 
@@ -498,28 +498,47 @@ function makeDocumentaryMusic(seconds,style='documentary'){
   const sr=24000,total=Math.max(1,Math.ceil(seconds*sr));
   const a=new Float32Array(total);
   const profiles={
-    documentary:{notes:[55,82.41,110,164.81],pulse:0.32,noise:0.010},
-    nature:{notes:[65.41,98,130.81,196],pulse:0.20,noise:0.018},
-    mystery:{notes:[46.25,69.30,92.50,138.59],pulse:0.42,noise:0.013}
+    documentary:{root:55,tempo:72,air:0.010,bright:0.30},
+    nature:{root:65.41,tempo:66,air:0.015,bright:0.38},
+    mystery:{root:46.25,tempo:58,air:0.012,bright:0.20}
   };
   const p=profiles[style]||profiles.documentary;
-  let lp=0,seed=918273;
+  const fifth=p.root*1.5,oct=p.root*2,third=p.root*1.25;
+  let lp=0,seed=918273,max=0;
   const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return(seed/4294967296)*2-1;};
+  const beat=60/p.tempo;
 
   for(let i=0;i<total;i++){
     const t=i/sr;
-    const fadeIn=Math.min(1,t/2.2),fadeOut=Math.min(1,(seconds-t)/2.5);
+    const fadeIn=Math.min(1,t/1.8);
+    const fadeOut=Math.min(1,Math.max(0,(seconds-t)/2.2));
     const env=Math.max(0,Math.min(fadeIn,fadeOut));
-    const chord=
-      Math.sin(2*Math.PI*p.notes[0]*t)*0.15+
-      Math.sin(2*Math.PI*p.notes[1]*t)*0.09+
-      Math.sin(2*Math.PI*p.notes[2]*t)*0.06+
-      Math.sin(2*Math.PI*p.notes[3]*t)*0.035;
-    const pulse=(0.5+0.5*Math.sin(2*Math.PI*p.pulse*t))*Math.sin(2*Math.PI*(p.notes[0]/2)*t)*0.05;
-    lp=lp*0.995+rnd()*0.005;
-    const air=lp*p.noise;
-    a[i]=(chord+pulse+air)*env;
+
+    // Warm cinematic pad.
+    const pad=
+      Math.sin(2*Math.PI*p.root*t)*0.34+
+      Math.sin(2*Math.PI*third*t)*0.15+
+      Math.sin(2*Math.PI*fifth*t)*0.18+
+      Math.sin(2*Math.PI*oct*t)*0.07;
+
+    // Soft rhythmic pulse, enough to remain audible under narration.
+    const phase=(t%beat)/beat;
+    const hit=Math.exp(-phase*7.5);
+    const pulse=Math.sin(2*Math.PI*(p.root/2)*t)*hit*0.20;
+
+    // Very light upper texture.
+    const shimmer=Math.sin(2*Math.PI*(oct*2)*t)*0.025*p.bright*(0.5+0.5*Math.sin(2*Math.PI*0.08*t));
+    lp=lp*0.992+rnd()*0.008;
+    const air=lp*p.air;
+
+    const v=(pad+pulse+shimmer+air)*env;
+    a[i]=v;
+    if(Math.abs(v)>max)max=Math.abs(v);
   }
+
+  // Normalize the generated soundtrack so it is consistently audible.
+  const gain=max>0 ? Math.min(1.8,0.82/max) : 1;
+  for(let i=0;i<total;i++) a[i]*=gain;
   return wavFromSamples(a,sr);
 }
 
@@ -666,20 +685,10 @@ async function makeSubtitleOverlay(text){
 }
 
 async function getDefaultMusic(total){
-  if(R('#musicStyle')?.value==='pixabay'){
-    try{
-      const r=await fetch('./documentary_music.mp3',{cache:'force-cache'});
-      if(r.ok){
-        const b=await r.blob();
-        if(b.size>20000){
-          rs('2/5 Música Pixabay cargada.');
-          return {blob:b,name:'music.mp3',external:true};
-        }
-      }
-    }catch(e){}
-    rs('2/5 No encontré documentary_music.mp3; usando música local de respaldo.');
-  }
-  return {blob:makeDocumentaryMusic(total,'documentary'),name:'music.wav',external:false};
+  const selected=R('#musicStyle')?.value||'embedded';
+  const style=selected==='nature'?'nature':selected==='mystery'?'mystery':'documentary';
+  rs('2/5 Música documental integrada preparada.');
+  return {blob:makeDocumentaryMusic(total,style),name:'music.wav',external:false};
 }
 
 
@@ -795,7 +804,7 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.18);
+    const musicVol=Number(R('#musicVol')?.value||0.22);
     await ffmpeg.exec([
       '-i','joined.mp4','-i','voice.wav','-stream_loop','-1','-i',musicInfo.name,
       '-filter_complex',
