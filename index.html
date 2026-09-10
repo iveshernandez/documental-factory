@@ -2,14 +2,16 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.7.4 Título Siempre</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.8 Cola 6</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
   <p class="tiny">La primera línea será el título del video y también el nombre del archivo final. Todo lo demás será el guion.</p>
 
   <label>Archivo .txt</label>
-  <input id="txtFile" type="file" accept=".txt,text/plain">
+  <input id="txtFile" type="file" accept=".txt,text/plain" multiple>
+  <div class="tiny" style="margin-top:7px">Puedes seleccionar hasta 6 archivos TXT. Se procesan uno por uno y cada MP4 se descarga por separado.</div>
+  <div id="queueStatus" class="status mut">Cola: sin archivos.</div>
 
   <div class="row">
     <div>
@@ -1363,16 +1365,16 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     abar(0);
   }
 
-  async function parseTxt(file){
+  async function parseTxt(file,{autoStart=false}={}){
     const text=await file.text();
     const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
     const lines=clean.split('\n');
     const first=lines.findIndex(x=>x.trim());
-    if(first<0)throw Error('El archivo está vacío.');
+    if(first<0)throw Error(`El archivo ${file.name} está vacío.`);
 
     const title=lines[first].trim();
     const script=lines.slice(first+1).join('\n').trim();
-    if(!script)throw Error('El TXT tiene título, pero no guion después de la primera línea.');
+    if(!script)throw Error(`El TXT ${file.name} tiene título, pero no guion después de la primera línea.`);
 
     A('#videoTitle').value=title;
     A('#downloadName').value=safeFileName(title);
@@ -1380,23 +1382,92 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     window.documentalVideoTitle=title;
     window.documentalDownloadName=safeFileName(title);
 
+    // Limpieza entre documentales para no reutilizar escenas o audio del anterior.
+    const scenesBox=A('#scenes'); if(scenesBox)scenesBox.innerHTML='';
+    window.documentalFactoryAudioBlob=null;
+    window.documentalFactoryAudioMeta=null;
+
     resetSteps();
     step('stepTxt','done','TXT leído');
-    ast('TXT cargado. Iniciando proceso completo…','ok');
+    ast(`TXT cargado: ${title}`,'ok');
 
     const b=A('#autoCreate');if(b)b.disabled=false;
-    setTimeout(()=>window.documentalAutoCreate?.(),200);
+    if(autoStart)setTimeout(()=>window.documentalAutoCreate?.(),200);
+    return {title,script};
+  }
+
+  let batchRunning=false;
+
+  function qstatus(text,cls='mut'){
+    const el=A('#queueStatus');
+    if(el){el.textContent=text;el.className='status '+cls;}
+  }
+
+  async function processTxtQueue(files){
+    if(batchRunning)return;
+    batchRunning=true;
+    const input=A('#txtFile');
+    const retry=A('#autoCreate');
+    if(input)input.disabled=true;
+    if(retry)retry.disabled=true;
+
+    const results=[];
+    try{
+      qstatus(`Cola preparada: ${files.length} archivo${files.length===1?'':'s'}.`,'ok');
+
+      for(let i=0;i<files.length;i++){
+        const file=files[i];
+        qstatus(`Procesando ${i+1} de ${files.length}: ${file.name}`);
+        const log=A('#liveLog');
+        if(log){
+          const t=new Date().toLocaleTimeString();
+          log.innerHTML+=`<div><b>${t} — ===== VIDEO ${i+1} DE ${files.length}: ${file.name} =====</b></div>`;
+          log.scrollTop=log.scrollHeight;
+        }
+
+        try{
+          await parseTxt(file,{autoStart:false});
+          const ok=await runCurrentDocument();
+          if(!ok)throw Error('El proceso no terminó correctamente.');
+          results.push({file:file.name,ok:true});
+          qstatus(`✅ ${i+1} de ${files.length} terminado. Preparando el siguiente…`,'ok');
+          await wait(600);
+        }catch(err){
+          console.error(err);
+          const msg=err?.message||String(err);
+          results.push({file:file.name,ok:false,error:msg});
+          ast(`❌ ${file.name}: ${msg}`,'err');
+          qstatus(`⚠️ ${file.name} falló. Continuando con el siguiente…`,'err');
+          await wait(800);
+        }
+      }
+
+      const good=results.filter(x=>x.ok).length;
+      const bad=results.length-good;
+      qstatus(`✅ Cola terminada: ${good} video${good===1?'':'s'} creado${good===1?'':'s'}${bad?` · ${bad} con error`:''}.`,bad?'err':'ok');
+      ast(`Cola finalizada: ${good}/${results.length} videos descargados${bad?` · ${bad} fallaron`:''}.`,bad?'err':'ok');
+    }finally{
+      batchRunning=false;
+      if(input)input.disabled=false;
+      if(retry)retry.disabled=false;
+      // Permite volver a seleccionar los mismos archivos si se desea repetir.
+      if(input)input.value='';
+    }
   }
 
   A('#txtFile')?.addEventListener('change',async e=>{
     try{
-      const file=e.target.files?.[0];
-      if(!file)return;
-      if(!/\.txt$/i.test(file.name) && file.type!=='text/plain')throw Error('Sube un archivo .txt.');
-      await parseTxt(file);
+      const files=[...(e.target.files||[])];
+      if(!files.length)return;
+      if(files.length>6)throw Error('Selecciona máximo 6 archivos TXT por tanda.');
+      const invalid=files.find(f=>!/\.txt$/i.test(f.name) && f.type!=='text/plain');
+      if(invalid)throw Error(`El archivo ${invalid.name} no es un TXT válido.`);
+      await processTxtQueue(files);
     }catch(err){
       ast('❌ '+(err?.message||err),'err');
+      qstatus('❌ '+(err?.message||err),'err');
       step('stepTxt','err','Error');
+      if(e.target)e.target.value='';
     }
   });
 
@@ -1447,28 +1518,29 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     ast('✅ Video terminado y descarga iniciada.','ok');
   }
 
+  async function runCurrentDocument(){
+    const script=(A('#script')?.value||'').trim();
+    if(!script)throw Error('Primero sube un TXT.');
+    if(!(A('#groq')?.value||'').trim())throw Error('Falta Groq API.');
+    if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw Error('Falta Pexels o Pixabay API.');
+
+    const voicePromise=makeVoice();
+    const scenesPromise=makeScenes();
+    await Promise.all([voicePromise,scenesPromise]);
+
+    ast('Voz y escenas listas. Iniciando render automáticamente…','ok');
+    await wait(200);
+    await renderFinal();
+    return true;
+  }
+
   async function autoCreateAll(){
-    if(autoRunning)return;
+    if(autoRunning || batchRunning)return false;
     autoRunning=true;
     const btn=A('#autoCreate'); if(btn)btn.disabled=true;
 
     try{
-      const script=(A('#script')?.value||'').trim();
-      if(!script)throw Error('Primero sube un TXT.');
-      if(!(A('#groq')?.value||'').trim())throw Error('Falta Groq API.');
-      if(!(A('#pexels')?.value||'').trim() && !(A('#pixabay')?.value||'').trim())throw Error('Falta Pexels o Pixabay API.');
-
-      // Start Transformers.js voice and visual scene creation together.
-      // This makes voice generation visibly active immediately and saves time.
-      const voicePromise=makeVoice();
-      const scenesPromise=makeScenes();
-
-      await Promise.all([voicePromise,scenesPromise]);
-
-      ast('Voz y escenas listas. Iniciando render automáticamente…','ok');
-      await wait(200);
-      await renderFinal();
-
+      return await runCurrentDocument();
     }catch(err){
       console.error(err);
       const msg=err?.message||String(err);
@@ -1476,6 +1548,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       if(A('#stepVoice')?.classList.contains('active'))step('stepVoice','err','Error');
       if(A('#stepScenes')?.classList.contains('active'))step('stepScenes','err','Error');
       if(A('#stepRender')?.classList.contains('active'))step('stepRender','err','Error');
+      return false;
     }finally{
       autoRunning=false;
       if(btn)btn.disabled=false;
@@ -1507,7 +1580,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 window.addEventListener('DOMContentLoaded',()=>{
   const required=['txtFile','videoTitle','downloadName','script','duration','sceneCount',
     'groq','pexels','pixabay','scenes','titleOverlay','subtitles','musicVol',
-    'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar'];
+    'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar','queueStatus'];
   const missing=required.filter(id=>!document.getElementById(id));
   if(missing.length){
     const s=document.getElementById('autoStatus');
