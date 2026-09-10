@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.7.2 Voces</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.7.4 Título Siempre</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -87,12 +87,12 @@
 <div class="renderbox">
 <h2 style="margin-top:0">5. Render final</h2>
 <div class="row">
-  <div><label>Título en video</label><select id="titleOverlay"><option value="yes">Mostrar al inicio</option><option value="no" selected>No mostrar</option></select></div>
+  <div><label>Título en video</label><div class="inputLike">Visible durante todo el video — fijo</div><input id="titleOverlay" type="hidden" value="yes"></div>
   <div><label>Subtítulos</label><select id="subtitles"><option value="yes" selected>Activados</option><option value="no">Desactivados</option></select></div>
 </div>
 <div class="row">
   <div><label>Música</label><div class="inputLike">Documental suave integrada — fija</div></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.30">30%</option><option value="0.36" selected>36%</option><option value="0.42">42%</option></select></div>
+  <div><label>Volumen música</label><div class="inputLike">30% — fijo</div><input id="musicVol" type="hidden" value="0.30"></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
@@ -939,12 +939,12 @@ async function createFinalVideo(){
       const overlayFiles=[];
       const overlaySpecs=[];
 
-      if(i===0 && R('#titleOverlay')?.value!=='no'){
+      if(R('#titleOverlay')?.value!=='no'){
         const titleBlob=await makeTitleOverlay(window.documentalVideoTitle||R('#videoTitle')?.value||'');
         const f=`title_${i}.png`;
         await ffmpeg.writeFile(f,new Uint8Array(await titleBlob.arrayBuffer()));
         overlayFiles.push(f); overlayInputs.push('-i',f);
-        overlaySpecs.push({fileIndex:1,start:0,end:Math.min(4.8,durNum)});
+        overlaySpecs.push({fileIndex:1,start:0,end:durNum});
       }
 
       if(R('#subtitles')?.value!=='no'){
@@ -993,7 +993,7 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.36);
+    const musicVol=Number(R('#musicVol')?.value||0.30);
 
     // v6.4: mix narration + music in the browser FIRST.
     // FFmpeg receives one finished WAV track, so it cannot drop the music.
