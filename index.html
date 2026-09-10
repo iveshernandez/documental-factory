@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Música Única Audible v6.6</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.7</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -38,9 +38,9 @@
       <label>Número de escenas</label>
       <select id="sceneCount">
         <option value="6">6</option>
-        <option value="8" selected>8</option>
+        <option value="8">8</option>
         <option value="10">10</option>
-        <option value="12">12</option>
+        <option value="12" selected>12</option>
       </select>
     </div>
   </div>
@@ -79,18 +79,18 @@
 <div class="renderbox">
 <h2 style="margin-top:0">5. Render final</h2>
 <div class="row">
-  <div><label>Título en video</label><select id="titleOverlay"><option value="yes" selected>Mostrar al inicio</option><option value="no">No mostrar</option></select></div>
+  <div><label>Título en video</label><select id="titleOverlay"><option value="yes">Mostrar al inicio</option><option value="no" selected>No mostrar</option></select></div>
   <div><label>Subtítulos</label><select id="subtitles"><option value="yes" selected>Activados</option><option value="no">Desactivados</option></select></div>
 </div>
 <div class="row">
   <div><label>Música</label><div class="inputLike">Documental suave integrada — fija</div></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.26">26%</option><option value="0.32" selected>32%</option><option value="0.38">38%</option></select></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.30">30%</option><option value="0.36" selected>36%</option><option value="0.42">42%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
 <div class="progress"><div id="renderBar"></div></div>
 <video id="finalPreview" class="finalvideo" controls playsinline></video>
-<p class="tiny">Una sola música documental se genera dentro del navegador en frecuencias medias audibles en celular y computadora. No necesita ningún archivo MP3/M4A externo.</p>
+<p class="tiny">Estilo referencia: subtítulos grandes blancos con palabras clave amarillas, cortes visuales más frecuentes, una sola música fija y mezcla final reforzada. No necesita ningún archivo MP3/M4A externo.</p>
 </div>
 </section></div>
 
@@ -585,7 +585,20 @@ async function mixNarrationMusicBrowser(voiceBlob,musicBlob,total,musicVol){
 
   const musicRms=Math.sqrt(musicEnergy/frames);
   const voiceRms=Math.sqrt(voiceEnergy/frames);
-  const mixedRms=Math.sqrt(mixedEnergy/frames);
+  let mixedRms=Math.sqrt(mixedEnergy/frames);
+
+  // Estilo referencia: audio final más presente y compacto.
+  // Aproxima el nivel percibido del ejemplo sin permitir clipping.
+  const targetRms=0.20;
+  const normGain=Math.min(2.2, 0.96/Math.max(peak,0.001), targetRms/Math.max(mixedRms,0.001));
+  if(normGain>1.001){
+    for(let i=0;i<frames;i++){
+      left[i]*=normGain;
+      right[i]*=normGain;
+    }
+    mixedRms*=normGain;
+    peak*=normGain;
+  }
 
   // Hard verification: do not export if the music contribution is effectively silent.
   if(!Number.isFinite(musicRms) || musicRms<0.012){
@@ -758,41 +771,70 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y+h,x,y,rr);ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
 }
 
-function splitSubtitleText(text,maxChars=58){
+function splitSubtitleText(text,maxChars=34){
   const clean=String(text||'').replace(/\s+/g,' ').trim();
   if(!clean)return [];
-  const sent=clean.match(/[^.!?¿¡]+[.!?]+|[^.!?¿¡]+$/g)||[clean];
-  const out=[];
-  for(let s of sent){
-    s=s.trim(); if(!s)continue;
-    if(s.length<=maxChars*2){out.push(s);continue;}
-    const words=s.split(/\s+/);let cur='';
-    for(const w of words){
-      const t=(cur+' '+w).trim();
-      if(t.length>maxChars*2 && cur){out.push(cur);cur=w;}else cur=t;
-    }
-    if(cur)out.push(cur);
+  const words=clean.split(/\s+/);
+  const out=[]; let cur='';
+  for(const w of words){
+    const next=(cur+' '+w).trim();
+    if((next.length>maxChars || next.split(/\s+/).length>7) && cur){
+      out.push(cur); cur=w;
+    }else cur=next;
   }
-  return out.length?out:[clean];
+  if(cur)out.push(cur);
+  return out;
+}
+
+function subtitleKeywordIndexes(words){
+  const stop=new Set(['para','como','pero','porque','desde','hasta','sobre','entre','este','esta','estos','estas','aquel','aquella',
+    'unos','unas','del','las','los','una','uno','que','con','por','sin','sus','más','muy','han','hay','fue','son','ser','se','su',
+    'el','la','de','y','o','en','un','al','lo','es','si','ya','no','le','les','a']);
+  return words.map((w,i)=>({i,w:w.toLowerCase().replace(/[^\p{L}\p{N}]/gu,'')}))
+    .filter(x=>x.w.length>=5 && !stop.has(x.w))
+    .sort((a,b)=>b.w.length-a.w.length).slice(0,2).map(x=>x.i);
 }
 
 async function makeSubtitleOverlay(text){
   return await canvasPngBlob((ctx,c)=>{
-    ctx.font='700 46px Arial, sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    const lines=wrapCanvasText(ctx,text,630,3);
-    const lineH=56;
-    const h=Math.max(92,lines.length*lineH+38);
-    const y=c.height-h-95;
-    ctx.fillStyle='rgba(0,0,0,.68)';
-    roundRect(ctx,34,y,c.width-68,h,22);ctx.fill();
-    ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.95)';
-    ctx.fillStyle='#ffffff';
-    lines.forEach((ln,i)=>{
-      const yy=y+19+lineH*(i+.5);
-      ctx.strokeText(ln,c.width/2,yy,630);
-      ctx.fillText(ln,c.width/2,yy,630);
+    const words=String(text||'').trim().split(/\s+/).filter(Boolean);
+    if(!words.length)return;
+    const yellow=new Set(subtitleKeywordIndexes(words));
+    const fontSize=54;
+    const font='900 '+fontSize+'px Arial, sans-serif';
+    ctx.font=font; ctx.textBaseline='middle'; ctx.textAlign='left';
+    const maxW=650, gap=14, lineH=66;
+    const lines=[]; let line=[]; let width=0;
+    words.forEach((word,i)=>{
+      const ww=ctx.measureText(word).width;
+      const add=line.length?gap+ww:ww;
+      if(line.length && width+add>maxW){
+        lines.push(line); line=[]; width=0;
+      }
+      line.push({word,i,w:ww});
+      width += line.length===1?ww:gap+ww;
     });
+    if(line.length)lines.push(line);
+    const shown=lines.slice(0,2);
+    const baseY=c.height-205-(shown.length-1)*lineH/2;
+    ctx.lineJoin='round';
+    ctx.lineWidth=10;
+    ctx.strokeStyle='rgba(0,0,0,.95)';
+    ctx.shadowColor='rgba(0,0,0,.72)';
+    ctx.shadowBlur=5;
+    shown.forEach((ln,li)=>{
+      const total=ln.reduce((s,x)=>s+x.w,0)+gap*Math.max(0,ln.length-1);
+      let x=(c.width-total)/2;
+      const y=baseY+li*lineH;
+      ln.forEach(item=>{
+        ctx.font=font;
+        ctx.strokeText(item.word,x,y);
+        ctx.fillStyle=yellow.has(item.i)?'#FFD400':'#FFFFFF';
+        ctx.fillText(item.word,x,y);
+        x+=item.w+gap;
+      });
+    });
+    ctx.shadowBlur=0;
   });
 }
 
@@ -914,7 +956,7 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.32);
+    const musicVol=Number(R('#musicVol')?.value||0.36);
 
     // v6.4: mix narration + music in the browser FIRST.
     // FFmpeg receives one finished WAV track, so it cannot drop the music.
@@ -1203,7 +1245,7 @@ async function go(){
 Devuelve SOLO un objeto JSON válido con esta forma:
 {"scenes":[{"narration":"fragmento del guion","query":"búsqueda visual EN INGLÉS de 2 a 6 palabras para encontrar metraje real"}]}.
 El array "scenes" debe contener exactamente ${n} objetos.
-La query debe describir algo concreto y visible.
+La query debe describir algo concreto y visible. Prioriza primeros planos, movimiento, comportamiento real, naturaleza cinematográfica y variedad de encuadres. Evita repetir la misma búsqueda.
 GUION:
 ${script}`;
 
