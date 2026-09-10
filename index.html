@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.10.3 Cola 12</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.11 Duración Auto + Escenas Precisas</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -29,23 +29,22 @@
 
   <div class="row">
     <div>
-      <label>Duración objetivo</label>
+      <label>Duración del documental</label>
       <select id="duration">
-        <option value="30" selected>30 segundos</option>
-        <option value="45">45 segundos</option>
-        <option value="60">60 segundos</option>
+        <option value="auto" selected>Automática según el guion</option>
+        <option value="60">1 minuto</option>
+        <option value="90">1 minuto 30 segundos</option>
+        <option value="120">2 minutos</option>
+        <option value="180">3 minutos</option>
       </select>
     </div>
     <div>
       <label>Número de escenas</label>
-      <select id="sceneCount">
-        <option value="6">6</option>
-        <option value="8">8</option>
-        <option value="10">10</option>
-        <option value="12" selected>12</option>
-      </select>
+      <div class="inputLike" id="sceneCountLabel">Automático — aprox. 1 escena cada 5 s</div>
+      <input id="sceneCount" type="hidden" value="12">
     </div>
   </div>
+  <p class="tiny">La duración real sigue la narración de Alexander. Si eliges 1, 1:30, 2 o 3 minutos, usa un guion de duración cercana. En automático, la app calcula las escenas según la longitud del texto.</p>
 
   <div class="actions">
     <button class="pri" id="autoCreate" disabled>⚡ REINTENTAR CREACIÓN</button>
@@ -78,7 +77,7 @@
 <audio id="audio" controls style="width:100%;margin-top:10px;display:none"></audio>
 <div id="audioActions" class="actions"></div>
 </section></div>
-<section class="card"><h2>4. Escenas encontradas</h2><div class="mut tiny">Búsqueda precisa: Groq crea 3 búsquedas en inglés por escena, mantiene el sujeto principal y prioriza la acción exacta de la narración. Usa Cambiar escena si alguno no te gusta.</div><div id="scenes" class="scenes"></div>
+<section class="card"><h2>4. Escenas encontradas</h2><div class="mut tiny">Búsqueda ultra precisa: Groq crea 5 búsquedas visuales por escena, mantiene el sujeto principal, evita conceptos abstractos y la app bloquea clips repetidos dentro del mismo documental.</div><div id="scenes" class="scenes"></div>
 
 <div class="renderbox">
 <h2 style="margin-top:0">5. Render final</h2>
@@ -977,8 +976,29 @@ async function createFinalVideo(){
 
     const durations=sceneDurations(total,sceneEls);
     const partNames=[];
+    const chunkNames=[];
+    const CHUNK_SIZE=6;
 
-    // Process ONE scene at a time. This is intentional for stability.
+    async function compactCurrentParts(chunkIndex){
+      if(!partNames.length)return;
+      if(partNames.length===1){
+        chunkNames.push(partNames[0]);
+        partNames.splice(0,partNames.length);
+        return;
+      }
+      const listName=`chunk_${chunkIndex}.txt`;
+      const outName=`chunk_${chunkIndex}.mp4`;
+      const list=partNames.map(n=>`file '${n}'`).join('\n');
+      await ffmpeg.writeFile(listName,new TextEncoder().encode(list));
+      await ffmpeg.exec(['-f','concat','-safe','0','-i',listName,'-c','copy',outName]);
+      for(const n of partNames){try{await ffmpeg.deleteFile(n);}catch(e){}}
+      try{await ffmpeg.deleteFile(listName);}catch(e){}
+      chunkNames.push(outName);
+      partNames.splice(0,partNames.length);
+      await sleep(30);
+    }
+
+    // Process ONE scene at a time and compact every 6 scenes for long videos.
     for(let i=0;i<sceneEls.length;i++){
       const el=sceneEls[i];
       const input=`scene_${i}.mp4`;
@@ -1039,12 +1059,17 @@ async function createFinalVideo(){
       try{await ffmpeg.deleteFile(input);}catch(e){}
       for(const f of overlayFiles){try{await ffmpeg.deleteFile(f);}catch(e){}}
       await sleep(20);
+
+      if(((i+1)%CHUNK_SIZE===0) || i===sceneEls.length-1){
+        rs(`4/5 Liberando temporales del bloque ${Math.floor(i/CHUNK_SIZE)+1}…`);
+        await compactCurrentParts(Math.floor(i/CHUNK_SIZE));
+      }
     }
 
-    rs('5/5 Uniendo escenas, voz y música…');
+    rs('5/5 Uniendo bloques, voz y música…');
     rb(78);
 
-    const concat=partNames.map(n=>`file '${n}'`).join('\n');
+    const concat=chunkNames.map(n=>`file '${n}'`).join('\n');
     await ffmpeg.writeFile('concat.txt',new TextEncoder().encode(concat));
     await ffmpeg.exec([
       '-f','concat','-safe','0','-i','concat.txt',
@@ -1119,7 +1144,7 @@ async function createFinalVideo(){
     rb(100);
     rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
 
-    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
+    await clean(ffmpeg,[...partNames,...chunkNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
     return true;
   }catch(err){
     console.error(err);
@@ -1133,7 +1158,7 @@ async function createFinalVideo(){
   }finally{
     if(btn)btn.disabled=false;
     // IMPORTANT: one fresh FFmpeg worker per documentary.
-    // Prevents cumulative WASM memory growth across a queue of 6.
+    // Prevents cumulative WASM memory growth across long queues.
     try{ await resetFFmpegAfterVideo(); }catch(e){ console.warn('[FFmpeg reset]',e); }
   }
 }
@@ -1210,8 +1235,8 @@ async function ai(prompt){
                   queries:{
                     type:'array',
                     items:{type:'string'},
-                    minItems:3,
-                    maxItems:3
+                    minItems:5,
+                    maxItems:5
                   }
                 },
                 required:['narration','query','queries'],
@@ -1226,7 +1251,7 @@ async function ai(prompt){
     },
     reasoning_effort:'low',
     temperature:0.2,
-    max_tokens:5000,
+    max_tokens:7000,
     stream:false
   };
 
@@ -1365,34 +1390,46 @@ function normalizeSceneQueries(scene){
     const k=q.toLowerCase();
     if(!seen.has(k)){seen.add(k);out.push(q);}
   }
-  return out.slice(0,3);
+  return out.slice(0,5);
 }
+
+let clipSearchCache=new Map();
+let usedClipKeys=new Set();
 
 async function pexelsClip(search,choice=0){
   const k=($('#pexels')?.value||'').trim();
   if(!k)return null;
   try{
-    const r=await fetch(`https://api.pexels.com/v1/videos/search?query=${encodeURIComponent(search)}&orientation=portrait&per_page=15&page=1`,{
-      headers:{Authorization:k}
-    });
-    if(!r.ok)return null;
-    const d=await r.json();
-    const videos=(d.videos||[]).filter(Boolean);
+    const cacheKey='pexels|'+search.toLowerCase();
+    let videos=clipSearchCache.get(cacheKey);
+    if(!videos){
+      const r=await fetch(`https://api.pexels.com/v1/videos/search?query=${encodeURIComponent(search)}&orientation=portrait&per_page=20&page=1`,{
+        headers:{Authorization:k}
+      });
+      if(!r.ok)return null;
+      const d=await r.json();
+      videos=(d.videos||[]).filter(Boolean);
+      clipSearchCache.set(cacheKey,videos);
+    }
     if(!videos.length)return null;
 
-    // Pexels already ranks results by relevance. Keep the first choices first.
     const v=videos[Math.min(choice,videos.length-1)];
+    if(!v)return null;
     const files=(v.video_files||[]).filter(x=>x.link);
     if(!files.length)return null;
 
-    // Prefer vertical/near-720 sources, then reasonable file size/resolution.
     files.sort((a,b)=>{
       const ap=(a.height||0)>(a.width||0)?0:1;
       const bp=(b.height||0)>(b.width||0)?0:1;
       if(ap!==bp)return ap-bp;
       return Math.abs((a.width||720)-720)-Math.abs((b.width||720)-720);
     });
-    return {url:files[0].link,provider:'Pexels',search};
+    return {
+      url:files[0].link,
+      provider:'Pexels',
+      search,
+      clipKey:'pexels:'+String(v.id||files[0].link)
+    };
   }catch(_){return null;}
 }
 
@@ -1400,14 +1437,26 @@ async function pixabayClip(search,choice=0){
   const k=($('#pixabay')?.value||'').trim();
   if(!k)return null;
   try{
-    const r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(search)}&per_page=15&page=1&safesearch=true`);
-    if(!r.ok)return null;
-    const d=await r.json();
-    const hits=(d.hits||[]).filter(Boolean);
+    const cacheKey='pixabay|'+search.toLowerCase();
+    let hits=clipSearchCache.get(cacheKey);
+    if(!hits){
+      const r=await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(k)}&q=${encodeURIComponent(search)}&per_page=20&page=1&safesearch=true`);
+      if(!r.ok)return null;
+      const d=await r.json();
+      hits=(d.hits||[]).filter(Boolean);
+      clipSearchCache.set(cacheKey,hits);
+    }
     if(!hits.length)return null;
+
     const v=hits[Math.min(choice,hits.length-1)];
+    if(!v)return null;
     const f=v&&(v.videos?.medium||v.videos?.small||v.videos?.large);
-    if(f?.url)return {url:f.url,provider:'Pixabay',search};
+    if(f?.url)return {
+      url:f.url,
+      provider:'Pixabay',
+      search,
+      clipKey:'pixabay:'+String(v.id||f.url)
+    };
   }catch(_){}
   return null;
 }
@@ -1416,24 +1465,30 @@ async function clipForScene(scene,attempt=0){
   const queries=normalizeSceneQueries(scene);
   if(!queries.length)return null;
 
-  // "Cambiar escena" walks through nearby candidates first, then alternate searches.
-  const queryIndex=Math.floor(attempt/3)%queries.length;
-  const candidateIndex=attempt%3;
+  // Search broadly while never reusing an exact stock-video ID in this documentary.
+  // "Cambiar escena" also rotates the starting query/candidate.
+  const qStart=attempt%queries.length;
+  const candidateStart=Math.floor(attempt/queries.length)%6;
 
-  // Initial pass: try the most exact query first; if it has no result, use alternatives.
-  if(attempt===0){
-    for(const search of queries){
-      let found=await pexelsClip(search,0);
-      if(found)return found;
-      found=await pixabayClip(search,0);
-      if(found)return found;
+  for(let qStep=0;qStep<queries.length;qStep++){
+    const search=queries[(qStart+qStep)%queries.length];
+    for(let cStep=0;cStep<6;cStep++){
+      const choice=(candidateStart+cStep)%6;
+
+      let found=await pexelsClip(search,choice);
+      if(found && !usedClipKeys.has(found.clipKey)){
+        usedClipKeys.add(found.clipKey);
+        return found;
+      }
+
+      found=await pixabayClip(search,choice);
+      if(found && !usedClipKeys.has(found.clipKey)){
+        usedClipKeys.add(found.clipKey);
+        return found;
+      }
     }
-    return null;
   }
-
-  const search=queries[queryIndex];
-  return (await pexelsClip(search,candidateIndex))
-      || (await pixabayClip(search,candidateIndex));
+  return null;
 }
 
 function render(s,c,i){
@@ -1445,6 +1500,7 @@ function render(s,c,i){
   a.dataset.narration=s.narration||'';
   a.dataset.searchAttempt=0;
   if(c?.url)a.dataset.clipUrl=c.url;
+  if(c?.clipKey)a.dataset.clipKey=c.clipKey;
 
   a.innerHTML=`<div class="media">${c?`<video muted loop controls playsinline src="${e(c.url)}"></video>`:'<span class="err">Sin clip</span>'}</div>
   <div class="body">
@@ -1477,7 +1533,7 @@ function render(s,c,i){
       ? `<video muted loop controls playsinline src="${e(c2.url)}"></video>`
       : '<span class="err">Sin otro clip</span>';
 
-    if(c2?.url)a.dataset.clipUrl=c2.url; else delete a.dataset.clipUrl;
+    if(c2?.url){a.dataset.clipUrl=c2.url;if(c2.clipKey)a.dataset.clipKey=c2.clipKey;} else {delete a.dataset.clipUrl;delete a.dataset.clipKey;}
     a.querySelector('.provider').textContent=c2?'Fuente: '+c2.provider:'Sin otro resultado';
     a.querySelector('.q').textContent='🔎 '+(c2?.search||sceneData.queries[attempt%Math.max(1,sceneData.queries.length)]||sceneData.query);
 
@@ -1485,41 +1541,70 @@ function render(s,c,i){
   };
 }
 
+function estimateNarrationSeconds(text){
+  const words=String(text||'').trim().split(/\s+/).filter(Boolean).length;
+  // Alexander normally lands around 145-160 Spanish words/minute.
+  return Math.max(20,(words/152)*60);
+}
+
+function automaticSceneCount(script){
+  const selected=String(document.querySelector('#duration')?.value||'auto');
+  const seconds=selected==='auto' ? estimateNarrationSeconds(script) : Number(selected);
+  // About one visual change every 5 seconds.
+  return Math.max(10,Math.min(40,Math.round(seconds/5)));
+}
+
+function updateAutomaticSceneCount(){
+  const script=(document.querySelector('#script')?.value||'').trim();
+  const n=automaticSceneCount(script);
+  const hidden=document.querySelector('#sceneCount');
+  const label=document.querySelector('#sceneCountLabel');
+  if(hidden)hidden.value=String(n);
+  if(label)label.textContent=`${n} escenas — aprox. 1 cada 5 s`;
+  return n;
+}
+
+document.querySelector('#duration')?.addEventListener('change',updateAutomaticSceneCount);
+document.querySelector('#script')?.addEventListener('input',updateAutomaticSceneCount);
+
 async function go(){
   const script=(document.querySelector('#script')?.value||'').trim();
-  const n=Number(document.querySelector('#sceneCount')?.value||8);
-  const d=Number(document.querySelector('#duration')?.value||30);
+  const n=updateAutomaticSceneCount();
+  clipSearchCache=new Map();
+  usedClipKeys=new Set();
   const pex=(document.querySelector('#pexels')?.value||'').trim();
   const pix=(document.querySelector('#pixabay')?.value||'').trim();
 
   if(!script)throw Error('El guion está vacío.');
   if(!pex && !pix)throw Error('Falta la API de Pexels o Pixabay.');
 
-  st('Groq está dividiendo el guion y creando búsquedas visuales precisas…');
+  st('Groq está creando escenas únicas y 5 búsquedas visuales precisas por escena…');
   const title=(document.querySelector('#videoTitle')?.value||'').trim();
   const prompt=`Actúa como editor de archivo visual para un documental vertical.
 Divide el guion en exactamente ${n} escenas y crea búsquedas de stock que coincidan LO MÁS POSIBLE con lo narrado.
 
 Devuelve SOLO JSON válido con esta forma:
-{"scenes":[{"narration":"fragmento exacto del guion","query":"mejor búsqueda principal en inglés","queries":["búsqueda exacta 1","alternativa 2","alternativa 3"]}]}.
+{"scenes":[{"narration":"fragmento exacto del guion","query":"mejor búsqueda principal en inglés","queries":["búsqueda 1","búsqueda 2","búsqueda 3","búsqueda 4","búsqueda 5"]}]}.
 
 REGLAS OBLIGATORIAS:
-- El array "scenes" debe contener exactamente ${n} objetos.
-- Cada escena debe tener exactamente 3 búsquedas diferentes en "queries".
+- El array "scenes" debe contener exactamente ${n} objetos y cubrir TODO el guion en orden, sin saltarse frases.
+- Cada escena debe tener exactamente 5 búsquedas DIFERENTES en "queries".
 - "query" debe ser idéntica a la primera búsqueda de "queries".
-- Todas las búsquedas deben estar EN INGLÉS y tener idealmente entre 4 y 8 palabras.
-- Primero identifica el SUJETO PRINCIPAL del documental usando el título y el guion.
-- Si la escena sigue hablando de ese sujeto, INCLUYE el sujeto principal en las 3 búsquedas. No lo reemplaces por un objeto secundario.
-- Describe la ACCIÓN exacta de la narración: carrying, hiding, hunting, swimming, walking, feeding, attacking, building, using shells, etc.
-- Añade el ENTORNO cuando ayude: underwater, ocean floor, jungle, desert, snow, city, workshop, etc.
-- No uses búsquedas genéricas como "shell", "ocean", "animal", "danger", "nature", "coconut" si el sujeto real puede incluirse.
-- Evita personas, objetos o especies distintas salvo que la narración realmente hable de ellas.
-- Usa nombres comunes que funcionen bien en Pexels/Pixabay. Puedes añadir una especie concreta si aumenta la precisión.
-- Alternativa 1: sujeto + acción exacta + entorno.
-- Alternativa 2: sujeto + comportamiento/objeto clave.
-- Alternativa 3: sujeto + plano visual útil (close up, underwater, wildlife, macro, aerial, etc.).
-- Mantén variedad de encuadres entre escenas, pero NUNCA sacrifiques la coincidencia con la narración solo por variar.
-- No inventes una acción que no esté en la narración.
+- Todas las búsquedas deben estar EN INGLÉS y tener idealmente entre 4 y 9 palabras.
+- Identifica primero el SUJETO PRINCIPAL usando TÍTULO + GUION. Ese sujeto debe permanecer explícito en las búsquedas mientras la narración siga hablando de él.
+- Si el documental es sobre una especie concreta, escribe esa especie en cada búsqueda relevante. Ejemplo: "octopus underwater close up", no "blue blood".
+- Convierte conceptos abstractos en imágenes físicas del sujeto. Para inteligencia, sangre, resistencia, peligro, memoria o anatomía, NO busques el concepto aislado: muestra al sujeto en un plano visual relacionado.
+- PROHIBIDO usar metáforas visuales de personas, ajedrez, bebidas, oficinas, manos humanas u otros animales si la escena sigue hablando del sujeto principal.
+- Evita especies distintas salvo que el guion haga una comparación explícita.
+- Describe la acción REAL cuando exista: swimming, hunting, hiding, crawling, feeding, carrying, attacking, repairing, driving, overheating, etc.
+- Añade entorno y contexto físico: underwater, coral reef, ocean floor, engine bay, traffic, workshop, desert, snow, forest, etc.
+- No uses búsquedas genéricas de una sola idea como "blood", "heat", "danger", "intelligence", "nature", "ocean", "shell".
+- Las 5 búsquedas de una escena deben ser variaciones útiles, no simples sinónimos.
+- Varía el ENCUADRE entre escenas consecutivas: close up, medium shot, wide shot, macro, side view, underwater tracking, aerial cuando corresponda.
+- Varía la ACCIÓN o el momento visual entre escenas consecutivas siempre que siga siendo fiel al guion.
+- Evita repetir exactamente la misma búsqueda en escenas diferentes.
+- No inventes acciones ni objetos que no estén relacionados con la narración.
+- Prioridad absoluta: 1) sujeto correcto, 2) acción/contexto correcto, 3) variedad visual.
 
 TÍTULO:
 ${title}
@@ -1703,7 +1788,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   async function makeScenes(){
     step('stepScenes','active','Analizando y buscando clips');
-    ast('1/4 Groq analiza el guion y Pexels/Pixabay buscan los clips…');
+    ast('1/4 Groq crea escenas precisas y bloquea clips repetidos…');
     abar(10);
     if(typeof window.documentalAnalyzeScenes!=='function')throw Error('Motor de escenas no disponible.');
     await window.documentalAnalyzeScenes();
