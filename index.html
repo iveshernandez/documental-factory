@@ -90,14 +90,14 @@
   <div><label>Subtítulos</label><select id="subtitles"><option value="yes" selected>Activados</option><option value="no">Desactivados</option></select></div>
 </div>
 <div class="row">
-  <div><label>Música</label><select id="musicStyle"><option value="embedded" selected>Documental integrada — default</option><option value="nature">Naturaleza suave</option><option value="mystery">Misterio suave</option></select></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.16">16%</option><option value="0.22" selected>22%</option><option value="0.28">28%</option><option value="0.34">34%</option></select></div>
+  <div><label>Música</label><select id="musicStyle"><option value="asset" selected>Documental original integrada — default</option><option value="generated">Generada localmente — respaldo</option></select></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.22">22%</option><option value="0.30" selected>30%</option><option value="0.38">38%</option><option value="0.46">46%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
 <div class="progress"><div id="renderBar"></div></div>
 <video id="finalPreview" class="finalvideo" controls playsinline></video>
-<p class="tiny">La música documental viene integrada en el propio programa: no necesita MP3 externo, no consume datos y añade muy poco peso al HTML. Se genera en memoria al crear el video. Título y subtítulos se incrustan como imagen para evitar problemas de fuentes en FFmpeg.</p>
+<p class="tiny">La música documental viene incluida como un archivo AAC muy pequeño dentro del proyecto. No aumenta el peso del HTML y FFmpeg la mezcla directamente con la narración. Título y subtítulos se incrustan como imagen para evitar problemas de fuentes en FFmpeg.</p>
 </div>
 </section></div>
 
@@ -685,10 +685,20 @@ async function makeSubtitleOverlay(text){
 }
 
 async function getDefaultMusic(total){
-  const selected=R('#musicStyle')?.value||'embedded';
-  const style=selected==='nature'?'nature':selected==='mystery'?'mystery':'documentary';
-  rs('2/5 Música documental integrada preparada.');
-  return {blob:makeDocumentaryMusic(total,style),name:'music.wav',external:false};
+  if((R('#musicStyle')?.value||'asset')==='asset'){
+    try{
+      const res=await fetch('./documentary_bg.m4a',{cache:'force-cache'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const blob=await res.blob();
+      if(blob.size<10000) throw new Error('archivo demasiado pequeño');
+      rs('2/5 Música documental original cargada.');
+      return {blob,name:'music.m4a',external:true};
+    }catch(e){
+      console.warn('No se pudo cargar documentary_bg.m4a; usando respaldo generado.',e);
+    }
+  }
+  rs('2/5 Usando música documental generada de respaldo.');
+  return {blob:makeDocumentaryMusic(total,'documentary'),name:'music.wav',external:false};
 }
 
 
@@ -804,11 +814,11 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.22);
+    const musicVol=Number(R('#musicVol')?.value||0.30);
     await ffmpeg.exec([
       '-i','joined.mp4','-i','voice.wav','-stream_loop','-1','-i',musicInfo.name,
       '-filter_complex',
-      `[1:a]volume=1.0[voice];[2:a]volume=${musicVol},atrim=0:${total.toFixed(3)},afade=t=in:st=0:d=1.0,afade=t=out:st=${Math.max(0,total-1.2).toFixed(3)}:d=1.2[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=1:normalize=0[a]`,
+      `[1:a]aresample=44100,volume=0.96[voice];[2:a]aresample=44100,volume=${musicVol},atrim=0:${total.toFixed(3)},afade=t=in:st=0:d=0.6,afade=t=out:st=${Math.max(0,total-0.9).toFixed(3)}:d=0.9[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0,alimiter=limit=0.95[a]`,
       '-map','0:v:0','-map','[a]',
       '-c:v','copy','-c:a','aac','-b:a','192k',
       '-shortest','-movflags','+faststart','documental_final.mp4'
