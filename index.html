@@ -2,7 +2,7 @@
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
 .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Voz Fija + PCM Directo v6.5</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Música Única Audible v6.6</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -83,14 +83,14 @@
   <div><label>Subtítulos</label><select id="subtitles"><option value="yes" selected>Activados</option><option value="no">Desactivados</option></select></div>
 </div>
 <div class="row">
-  <div><label>Música</label><select id="musicStyle"><option value="asset" selected>Documental original integrada — default</option><option value="generated">Generada localmente — respaldo</option></select></div>
-  <div><label>Volumen música</label><select id="musicVol"><option value="0.38">38%</option><option value="0.48" selected>48%</option><option value="0.58">58%</option></select></div>
+  <div><label>Música</label><div class="inputLike">Documental suave integrada — fija</div></div>
+  <div><label>Volumen música</label><select id="musicVol"><option value="0.26">26%</option><option value="0.32" selected>32%</option><option value="0.38">38%</option></select></div>
 </div>
 <div class="actions"><button class="pri" id="finalRender">🎬 CREAR Y DESCARGAR VIDEO FINAL</button></div>
 <div id="renderStatus" class="status mut">Cuando tus escenas estén listas, este botón hará todo en una sola operación.</div>
 <div class="progress"><div id="renderBar"></div></div>
 <video id="finalPreview" class="finalvideo" controls playsinline></video>
-<p class="tiny">La música documental viene incluida como un archivo AAC muy pequeño dentro del proyecto. No aumenta el peso del HTML y FFmpeg la mezcla directamente con la narración. Título y subtítulos se incrustan como imagen para evitar problemas de fuentes en FFmpeg.</p>
+<p class="tiny">Una sola música documental se genera dentro del navegador en frecuencias medias audibles en celular y computadora. No necesita ningún archivo MP3/M4A externo.</p>
 </div>
 </section></div>
 
@@ -601,52 +601,57 @@ async function mixNarrationMusicBrowser(voiceBlob,musicBlob,total,musicVol){
   };
 }
 
-function makeDocumentaryMusic(seconds,style='documentary'){
+function makeDocumentaryMusic(seconds){
+  // One fixed documentary bed designed to remain audible on phones/laptops.
+  // Main content is 220–880 Hz instead of sub-bass frequencies.
   const sr=24000,total=Math.max(1,Math.ceil(seconds*sr));
-  const a=new Float32Array(total);
-  const profiles={
-    documentary:{root:55,tempo:72,air:0.010,bright:0.30},
-    nature:{root:65.41,tempo:66,air:0.015,bright:0.38},
-    mystery:{root:46.25,tempo:58,air:0.012,bright:0.20}
-  };
-  const p=profiles[style]||profiles.documentary;
-  const fifth=p.root*1.5,oct=p.root*2,third=p.root*1.25;
-  let lp=0,seed=918273,max=0;
-  const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return(seed/4294967296)*2-1;};
-  const beat=60/p.tempo;
+  const out=new Float32Array(total);
+  const chordLen=4.0;
+  const chords=[
+    [220.00,261.63,329.63], // Am/C texture
+    [174.61,220.00,261.63], // F
+    [196.00,246.94,293.66], // G
+    [220.00,277.18,329.63]  // A/C#
+  ];
+  const beat=0.75;
+  let peak=0;
 
   for(let i=0;i<total;i++){
     const t=i/sr;
-    const fadeIn=Math.min(1,t/1.8);
-    const fadeOut=Math.min(1,Math.max(0,(seconds-t)/2.2));
-    const env=Math.max(0,Math.min(fadeIn,fadeOut));
+    const chord=chords[Math.floor(t/chordLen)%chords.length];
+    const local=t%chordLen;
 
-    // Warm cinematic pad.
-    const pad=
-      Math.sin(2*Math.PI*p.root*t)*0.34+
-      Math.sin(2*Math.PI*third*t)*0.15+
-      Math.sin(2*Math.PI*fifth*t)*0.18+
-      Math.sin(2*Math.PI*oct*t)*0.07;
+    // Warm mid-frequency pad.
+    let pad=0;
+    for(const f of chord){
+      pad += Math.sin(2*Math.PI*f*t)*0.18;
+      pad += Math.sin(2*Math.PI*(f*2)*t)*0.045;
+    }
 
-    // Soft rhythmic pulse, enough to remain audible under narration.
+    // Gentle audible arpeggio in the 330–660 Hz zone.
+    const step=Math.floor((t%3.0)/beat)%4;
+    const arpFreq=[329.63,392.00,440.00,523.25][step];
     const phase=(t%beat)/beat;
-    const hit=Math.exp(-phase*7.5);
-    const pulse=Math.sin(2*Math.PI*(p.root/2)*t)*hit*0.20;
+    const arpEnv=Math.exp(-phase*5.2);
+    const arp=Math.sin(2*Math.PI*arpFreq*t)*0.17*arpEnv;
 
-    // Very light upper texture.
-    const shimmer=Math.sin(2*Math.PI*(oct*2)*t)*0.025*p.bright*(0.5+0.5*Math.sin(2*Math.PI*0.08*t));
-    lp=lp*0.992+rnd()*0.008;
-    const air=lp*p.air;
+    // Soft rhythmic pulse around 220 Hz, still speaker-friendly.
+    const pulsePhase=(t%1.5)/1.5;
+    const pulse=Math.sin(2*Math.PI*220*t)*Math.exp(-pulsePhase*7)*0.08;
 
-    const v=(pad+pulse+shimmer+air)*env;
-    a[i]=v;
-    if(Math.abs(v)>max)max=Math.abs(v);
+    // Slow movement so it feels like a documentary bed, not a test tone.
+    const movement=0.86+0.14*Math.sin(2*Math.PI*0.055*t);
+    const fadeIn=Math.min(1,t/0.7);
+    const fadeOut=Math.min(1,Math.max(0,(seconds-t)/0.9));
+    const v=(pad+arp+pulse)*movement*Math.min(fadeIn,fadeOut);
+    out[i]=v;
+    peak=Math.max(peak,Math.abs(v));
   }
 
-  // Normalize the generated soundtrack so it is consistently audible.
-  const gain=max>0 ? Math.min(1.8,0.82/max) : 1;
-  for(let i=0;i<total;i++) a[i]*=gain;
-  return wavFromSamples(a,sr);
+  // Normalize to a healthy level before the final background gain.
+  const gain=peak>0 ? 0.80/peak : 1;
+  for(let i=0;i<total;i++) out[i]*=gain;
+  return wavFromSamples(out,sr);
 }
 
 async function blobDuration(blob){
@@ -792,20 +797,8 @@ async function makeSubtitleOverlay(text){
 }
 
 async function getDefaultMusic(total){
-  if((R('#musicStyle')?.value||'asset')==='asset'){
-    try{
-      const res=await fetch('./documentary_bg.m4a',{cache:'force-cache'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const blob=await res.blob();
-      if(blob.size<10000) throw new Error('archivo demasiado pequeño');
-      rs('2/5 Música documental original cargada.');
-      return {blob,name:'music.m4a',external:true};
-    }catch(e){
-      console.warn('No se pudo cargar documentary_bg.m4a; usando respaldo generado.',e);
-    }
-  }
-  rs('2/5 Usando música documental generada de respaldo.');
-  return {blob:makeDocumentaryMusic(total,'documentary'),name:'music.wav',external:false};
+  rs('2/5 Música documental fija preparada.');
+  return {blob:makeDocumentaryMusic(total),name:'music.wav',external:false};
 }
 
 
@@ -921,7 +914,7 @@ async function createFinalVideo(){
     ]);
     rb(86);
 
-    const musicVol=Number(R('#musicVol')?.value||0.48);
+    const musicVol=Number(R('#musicVol')?.value||0.32);
 
     // v6.4: mix narration + music in the browser FIRST.
     // FFmpeg receives one finished WAV track, so it cannot drop the music.
@@ -932,7 +925,9 @@ async function createFinalVideo(){
       throw new Error('La mezcla de audio del navegador quedó vacía.');
     }
     await ffmpeg.writeFile('mixed_browser.wav',mixedBytes);
-    rs(`5/5 Mezcla REAL creada · música RMS ${mixResult.musicRms.toFixed(3)} · voz RMS ${mixResult.voiceRms.toFixed(3)} · ${Math.round(mixedBytes.byteLength/1024)} KB.`);
+    const mixKB=Math.round(mixedBytes.byteLength/1024);
+    if(mixKB<100) throw new Error(`Mezcla WAV inválida: ${mixKB} KB.`);
+    rs(`5/5 Mezcla REAL creada · música RMS ${mixResult.musicRms.toFixed(3)} · voz RMS ${mixResult.voiceRms.toFixed(3)} · ${mixKB} KB.`);
 
     rs('5/5 Insertando la mezcla única en el MP4…');
     await ffmpeg.exec([
@@ -942,6 +937,18 @@ async function createFinalVideo(){
       '-t',total.toFixed(3),'-movflags','+faststart','documental_final.mp4'
     ]);
     rb(96);
+
+    // Decode final MP4 audio once: if AAC audio is missing/corrupt, do not download.
+    rs('5/5 Verificando audio dentro del MP4 final…');
+    await ffmpeg.exec([
+      '-i','documental_final.mp4','-vn','-t','2',
+      '-ac','1','-ar','16000','-c:a','pcm_s16le','final_audio_check.wav'
+    ]);
+    const finalAudioCheck=await ffmpeg.readFile('final_audio_check.wav');
+    if(!finalAudioCheck || finalAudioCheck.byteLength<20000){
+      throw new Error('El MP4 final no contiene una pista de audio válida.');
+    }
+    rs('5/5 ✅ Audio verificado dentro del MP4 final.');
 
     const data=await ffmpeg.readFile('documental_final.mp4');
     const finalBlob=new Blob([data.buffer],{type:'video/mp4'});
@@ -964,7 +971,7 @@ async function createFinalVideo(){
     rb(100);
     rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz y música documental. Descarga iniciada.`, 'ok');
 
-    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','documental_final.mp4']);
+    await clean(ffmpeg,[...partNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
     return true;
   }catch(err){
     console.error(err);
@@ -1407,7 +1414,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 <script>
 window.addEventListener('DOMContentLoaded',()=>{
   const required=['txtFile','videoTitle','downloadName','script','duration','sceneCount',
-    'groq','pexels','pixabay','scenes','titleOverlay','subtitles','musicStyle','musicVol',
+    'groq','pexels','pixabay','scenes','titleOverlay','subtitles','musicVol',
     'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar'];
   const missing=required.filter(id=>!document.getElementById(id));
   if(missing.length){
