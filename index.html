@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.4 Sync + Natural Voice</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.5.1 Approx Natural Duration</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona solamente 9–12 fotogramas de mayor información visual con segundos reales y los analiza en bloques de 3. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona solamente 9–12 fotogramas de mayor información visual con segundos reales y los analiza en bloques de 3. La duración elegida se usa como objetivo aproximado para calcular el tamaño del guion. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -1117,9 +1117,11 @@ async function createFinalVideo(){
     if(!naturalTotal||!isFinite(naturalTotal)) throw new Error('No pude calcular la duración de la narración.');
 
     const forced=Number(window.documentalForcedDurationSeconds||0);
-    let total=(forced>0 && Number.isFinite(forced))?forced:naturalTotal;
+    // The selected duration is only an APPROXIMATE target for script length.
+    // Final video duration follows Alexander's natural narration exactly.
+    let total=naturalTotal;
 
-    rs('2/5 Ajustando narración a la duración seleccionada…');
+    rs(`2/5 Alexander natural: ${naturalTotal.toFixed(1)} s · duración final aproximada`);
     rb(8);
 
     rs('3/5 Cargando FFmpeg…');
@@ -1127,25 +1129,6 @@ async function createFinalVideo(){
     rb(12);
 
     await ffmpeg.writeFile('voice.wav',new Uint8Array(await voiceBlob.arrayBuffer()));
-
-    if(forced>0 && Math.abs(naturalTotal-forced)>0.08){
-      // atempo factor = original duration / desired duration.
-      // Example: 170s -> 180s => 0.9444 (slightly slower, pitch preserved).
-      const tempoFactor=naturalTotal/forced;
-      const atempo=buildAtempoChain(tempoFactor);
-      rs(`2/5 Ajustando Alexander: ${naturalTotal.toFixed(1)} s → ${forced.toFixed(1)} s…`);
-      await ffmpeg.exec([
-        '-i','voice.wav',
-        '-filter:a',atempo,
-        '-ar','44100','-ac','1',
-        '-c:a','pcm_s16le',
-        '-t',forced.toFixed(3),
-        'voice_target.wav'
-      ]);
-      const fitted=await ffmpeg.readFile('voice_target.wav');
-      voiceBlob=new Blob([fitted.buffer],{type:'audio/wav'});
-      total=forced;
-    }
 
     rs('2/5 Preparando música documental…');
     rb(14);
@@ -2731,7 +2714,7 @@ No inventes nada que no aparezca en la timeline.`;
     };
   }
   function targetSceneCount(seconds){return Math.max(12,Math.min(36,Math.round(seconds/5)));}
-  function targetWords(seconds){return Math.round(seconds*1.85);}
+  function targetWords(seconds){return Math.round(seconds*2.42);}
   function stockRatioFor(targetSeconds,sourceSeconds){
     // The original uploaded video is the primary visual source.
     // Stock is only a small complement so narration stays visually synchronized.
@@ -2802,12 +2785,12 @@ No inventes nada que no aparezca en la timeline.`;
     return plan;
   }
 
-  async function groqBuildVideoPlan(analysis,fileName,targetSeconds,style,sourceSeconds){
+  async function groqBuildVideoPlan(analysis,fileName,targetSeconds,style,sourceSeconds,wordsOverride=null){
     const key=(V('groq')?.value||'').trim();
     if(!key)throw new Error('Falta Groq API.');
 
     const scenes=targetSceneCount(targetSeconds);
-    const words=targetWords(targetSeconds);
+    const words=Math.max(80,Math.round(Number(wordsOverride)||targetWords(targetSeconds)));
     const stockRatio=stockRatioFor(targetSeconds,sourceSeconds);
     const stockCount=Math.max(1,Math.round(scenes*stockRatio));
 
@@ -3238,14 +3221,12 @@ REGLAS CRÍTICAS:
       const script=(plan.scenes||[]).map(x=>String(x.narration||'').trim()).filter(Boolean).join(' ').trim();
       if(!script)throw new Error('El plan de IA llegó sin narración.');
 
-      // Reuse the proven TXT render pipeline state.
       V('videoTitle').value=title;
       V('downloadName').value=(window.documentalSafeFileName
         ? window.documentalSafeFileName(title)
         : (title||'documental').replace(/:/g,'：').replace(/[<>"/\\|?*\x00-\x1F]/g,'').trim()+'.mp4');
       V('script').value=script;
 
-      // Video → Guion IA always keeps the same title/subtitle system as TXT mode.
       if(V('titleOverlay'))V('titleOverlay').value='yes';
       if(V('subtitles'))V('subtitles').value='yes';
 
@@ -3254,21 +3235,26 @@ REGLAS CRÍTICAS:
 
       if(V('videoAIFinalTitle'))V('videoAIFinalTitle').value=title;
       if(V('videoAIDownloadName'))V('videoAIDownloadName').value=window.documentalDownloadName;
-      window.documentalFactoryAudioBlob=null;
-      window.documentalFactoryAudioMeta=null;
       V('videoAIScript').value=script;
-      vBar(30);
+      vBar(38);
 
       await buildSceneCardsFromVideoPlan(plan,meta);
-      vBar(56);
+      vBar(62);
 
-      vStatus('Generando narración con Alexander V…');
+      vStatus('Generando narración con Alexander V a velocidad natural…');
+      window.documentalFactoryAudioBlob=null;
+      window.documentalFactoryAudioMeta=null;
       await window.ensureAlexanderReady?.();
       await window.generateDocumentalVoice?.();
       if(!window.documentalFactoryAudioBlob)throw new Error('Alexander terminó sin crear audio.');
-      vBar(66);
 
-      vStatus(`Renderizando “${title}” con título y subtítulos…`);
+      let naturalSeconds=Number(window.documentalFactoryAudioMeta?.seconds||0);
+      if(!naturalSeconds){
+        naturalSeconds=await blobDuration(window.documentalFactoryAudioBlob);
+      }
+      vBar(68);
+
+      vStatus(`Renderizando “${title}” · duración natural aproximada ${naturalSeconds.toFixed(1)} s…`);
       const ok=await window.createDocumentalFinalVideo?.();
       if(ok!==true)throw new Error('FFmpeg no confirmó el render final.');
 
