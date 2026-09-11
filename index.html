@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.2 Vision JSON Fix</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.3 Vision Plaintext Parser</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -180,7 +180,7 @@
       <button class="pri" id="videoAIRetry" type="button" disabled>↻ REINTENTAR VIDEO ACTUAL</button>
     </div>
 
-    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Los fotogramas elegidos se comprimen y procesan en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Si Groq aplica un límite temporal 429, la app espera automáticamente el tiempo indicado y reintenta. Vision ya no usa el modo JSON que estaba provocando errores 400; si el modelo devuelve JSON imperfecto, la app intenta repararlo automáticamente. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
+    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Los fotogramas elegidos se comprimen y procesan en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Si Groq aplica un límite temporal 429, la app espera automáticamente el tiempo indicado y reintenta. Vision ya no depende de JSON. Cada bloque devuelve líneas simples FRAME y UNKNOWN, que la app interpreta directamente. Si el modelo rompe el formato, GPT-OSS lo normaliza sin usar JSON. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
   </section>
 </div>
 
@@ -2480,13 +2480,14 @@ ARCHIVO: "${fileName}"
 DURACIÓN ORIGINAL: ${meta.duration.toFixed(1)} s
 BLOQUE: ${b+1} de ${batches.length}
 
-Devuelve SOLO un objeto JSON válido. No uses markdown ni agregues explicación antes o después:
-{
-  "timeline":[
-    {"frame":1,"time":3.2,"visible":"solo lo realmente visible","action":"acción visible breve"}
-  ],
-  "unknowns":["cosas que no pueden confirmarse"]
-}
+RESPONDE SOLO con líneas de texto usando EXACTAMENTE este formato:
+FRAME|numero|segundo|descripcion visible|accion visible
+UNKNOWN|detalle no confirmado
+
+Ejemplo:
+FRAME|1|3.2|Un zorro sobre una mesa metálica|Una persona sostiene al zorro
+FRAME|2|7.8|Primer plano de una pata|Una persona manipula la pata
+UNKNOWN|No se puede confirmar si la persona es veterinaria
 
 REGLAS:
 - No inventes medicamentos, diagnósticos, familiares, lugares, tratamientos, fechas ni emociones.
@@ -2529,13 +2530,34 @@ REGLAS:
 
       const data=JSON.parse(raw);
       const txt=data?.choices?.[0]?.message?.content||'';
-      let parsed;
-      try{
-        parsed=parseLooseJson(txt);
-      }catch(e){
-        vStatus(`Corrigiendo formato JSON del bloque ${b+1}…`);
 
-        const repairReq=await groqFetchWith429Retry(
+      const timeline=[];
+      const unknowns=[];
+
+      for(const rawLine of String(txt).split(/\r?\n/)){
+        const line=rawLine.trim();
+        if(!line)continue;
+
+        if(/^FRAME\|/i.test(line)){
+          const parts=line.split('|');
+          if(parts.length>=5){
+            const frame=Number(parts[1])||0;
+            const time=Number(parts[2])||0;
+            const visible=parts[3].trim();
+            const action=parts.slice(4).join('|').trim();
+            timeline.push({frame,time,visible,action});
+          }
+        }else if(/^UNKNOWN\|/i.test(line)){
+          const detail=line.replace(/^UNKNOWN\|/i,'').trim();
+          if(detail)unknowns.push(detail);
+        }
+      }
+
+      // Fallback: if the model ignored the line format, do one short text-normalization pass.
+      if(!timeline.length){
+        vStatus(`Normalizando respuesta del bloque ${b+1}…`);
+
+        const normalizeReq=await groqFetchWith429Retry(
           'https://api.groq.com/openai/v1/chat/completions',
           {
             method:'POST',
@@ -2545,38 +2567,61 @@ REGLAS:
               messages:[
                 {
                   role:'system',
-                  content:'Convierte el texto recibido a JSON válido. Devuelve solo JSON, sin markdown.'
+                  content:'Convierte el texto a líneas FRAME|numero|segundo|descripcion visible|accion visible y UNKNOWN|detalle. No uses JSON ni markdown.'
                 },
                 {
                   role:'user',
-                  content:'Formato requerido: {"timeline":[{"frame":1,"time":0,"visible":"...","action":"..."}],"unknowns":[]}\n\nTexto a reparar:\n'+txt
+                  content:'Texto a normalizar:\n'+txt
                 }
               ],
               temperature:0,
-              max_tokens:700
+              max_tokens:650
             })
           },
-          `Reparación JSON bloque ${b+1}`,
+          `Normalización bloque ${b+1}`,
           3
         );
 
-        if(!repairReq.response.ok){
-          throw new Error(`Groq Vision bloque ${b+1} respondió con formato inválido.`);
+        if(!normalizeReq.response.ok){
+          throw new Error(`Groq Vision bloque ${b+1} no pudo normalizarse.`);
         }
 
-        const repairData=JSON.parse(repairReq.raw);
-        const repairText=repairData?.choices?.[0]?.message?.content||'';
-        try{
-          parsed=parseLooseJson(repairText);
-        }catch(_){
-          throw new Error(`Groq Vision bloque ${b+1} no pudo convertirse a JSON válido.`);
+        const normData=JSON.parse(normalizeReq.raw);
+        const normText=normData?.choices?.[0]?.message?.content||'';
+
+        for(const rawLine of String(normText).split(/\r?\n/)){
+          const line=rawLine.trim();
+          if(/^FRAME\|/i.test(line)){
+            const parts=line.split('|');
+            if(parts.length>=5){
+              timeline.push({
+                frame:Number(parts[1])||0,
+                time:Number(parts[2])||0,
+                visible:parts[3].trim(),
+                action:parts.slice(4).join('|').trim()
+              });
+            }
+          }else if(/^UNKNOWN\|/i.test(line)){
+            const detail=line.replace(/^UNKNOWN\|/i,'').trim();
+            if(detail)unknowns.push(detail);
+          }
         }
       }
 
-      if(!Array.isArray(parsed.timeline))parsed.timeline=[];
-      if(!Array.isArray(parsed.unknowns))parsed.unknowns=[];
+      // Last-resort fallback: keep the batch alive using the known timestamps.
+      if(!timeline.length){
+        group.forEach((f,j)=>{
+          timeline.push({
+            frame:b*3+j+1,
+            time:Number(f.time)||0,
+            visible:'Fotograma analizado sin descripción estructurada',
+            action:'Acción no determinada'
+          });
+        });
+        unknowns.push(`Bloque ${b+1}: descripción visual incompleta`);
+      }
 
-      partials.push(parsed);
+      partials.push({timeline,unknowns});
 
       // Small pause between vision calls to reduce burst pressure on the free-tier TPM limit.
       if(b<batches.length-1){
@@ -2635,7 +2680,24 @@ No inventes nada que no aparezca en la timeline.`;
             {role:'user',content:summaryPrompt}
           ],
           temperature:0.1,
-          max_tokens:700
+          max_tokens:700,
+          response_format:{
+            type:'json_schema',
+            json_schema:{
+              name:'vision_summary',
+              strict:true,
+              schema:{
+                type:'object',
+                additionalProperties:false,
+                properties:{
+                  subject:{type:'string'},
+                  environment:{type:'string'},
+                  verified_summary:{type:'string'}
+                },
+                required:['subject','environment','verified_summary']
+              }
+            }
+          }
         })
       },
       'Groq resumen',
@@ -2649,7 +2711,7 @@ No inventes nada que no aparezca en la timeline.`;
     const sdata=JSON.parse(sraw);
     const stxt=sdata?.choices?.[0]?.message?.content||'';
     let summary={};
-    try{summary=parseLooseJson(stxt);}catch(e){}
+    try{summary=JSON.parse(stxt);}catch(e){}
 
     return {
       subject:summary.subject||'No determinado',
