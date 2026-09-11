@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.2 Exact Duration + Clean Filename</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.2.1 Fetch Fallback</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -151,7 +151,7 @@
 
     <div class="renderbox">
       <b>Transformación visual automática — siempre activa</b>
-      <div class="tiny" style="margin-top:6px">Cada escena usa una combinación distinta de segmento, zoom, posición del encuadre y velocidad. Aproximadamente 30–45% del resultado usa clips complementarios según cuánto haya que alargar el video.</div>
+      <div class="tiny" style="margin-top:6px">Cada escena usa una combinación distinta de segmento, zoom, posición del encuadre y velocidad. Aproximadamente 30–45% del resultado intenta usar clips complementarios. Si Pexels/Pixabay bloquea la descarga directa del clip, la app cambia automáticamente a un recorte transformado del video original y continúa, sin cancelar toda la cola.</div>
     </div>
 
     <div id="videoAIStatus" class="status mut">Selecciona hasta 6 videos. La cola comenzará automáticamente.</div>
@@ -503,7 +503,10 @@ async function generateVoice(){
     ttsStatus(`✅ Alexander V generada — ${seconds.toFixed(1)} s.`,'ok');
     return {blob,seconds};
   }catch(err){
-    const msg=err?.message||String(err);
+    let msg=err?.message||String(err);
+          if(msg==='Failed to fetch'){
+            msg='No se pudo descargar un recurso externo ni usar su respaldo. Revisa conexión/API y vuelve a intentar.';
+          }
     ttsStatus('❌ '+msg,'err');
     throw new Error(msg);
   }
@@ -924,10 +927,24 @@ function sceneDurations(total,sceneEls){
   return ds;
 }
 
-async function fetchBlob(url){
-  const r=await fetch(url,{mode:'cors'});
-  if(!r.ok) throw new Error('No se pudo descargar uno de los clips ('+r.status+').');
-  return await r.blob();
+async function fetchBlob(url,{attempts=3}={}){
+  let lastErr=null;
+  for(let n=1;n<=attempts;n++){
+    try{
+      const isBlob=String(url||'').startsWith('blob:');
+      const r=await fetch(url,isBlob?{}:{mode:'cors',cache:'no-store'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const b=await r.blob();
+      if(!b || !b.size)throw new Error('respuesta vacía');
+      return b;
+    }catch(err){
+      lastErr=err;
+      if(n<attempts)await new Promise(r=>setTimeout(r,350*n));
+    }
+  }
+  const e=new Error('Failed to fetch');
+  e.cause=lastErr;
+  throw e;
 }
 
 async function clean(ffmpeg,names){
@@ -1170,7 +1187,27 @@ async function createFinalVideo(){
       rs(`4/5 Renderizando escena ${i+1} de ${sceneEls.length}…`);
       rb(15+Math.round((i/sceneEls.length)*60));
 
-      const clipBlob=await fetchBlob(el.dataset.clipUrl);
+      let clipBlob;
+      let usedFallback=false;
+      try{
+        clipBlob=await fetchBlob(el.dataset.clipUrl,{attempts:3});
+      }catch(fetchErr){
+        const fallback=el.dataset.fallbackUrl;
+        if(!fallback)throw fetchErr;
+
+        rs(`⚠️ Clip externo bloqueado en escena ${i+1}. Usando recorte transformado del video original…`);
+        clipBlob=await fetchBlob(fallback,{attempts:2});
+        usedFallback=true;
+
+        // Keep narration visually synchronized with the original-video timestamp.
+        el.dataset.start=el.dataset.fallbackStart||el.dataset.start||'0';
+
+        const q=el.querySelector('.q');
+        if(q)q.textContent='✂️ Fallback automático: video original transformado';
+        const p=el.querySelector('.provider');
+        if(p)p.textContent='Fuente: video original transformado';
+      }
+
       await ffmpeg.writeFile(input,new Uint8Array(await clipBlob.arrayBuffer()));
 
       const durNum=Math.max(1.0,durations[i]);
@@ -2650,6 +2687,15 @@ REGLAS CRÍTICAS:
         if(clip){
           art.dataset.clipUrl=clip.url;
           art.dataset.clipKey=clip.clipKey||'';
+
+          // If the external CDN blocks browser fetch/CORS during render,
+          // fall back automatically to the uploaded video instead of aborting the documentary.
+          art.dataset.fallbackUrl=meta.url;
+          art.dataset.fallbackStart=Math.max(
+            0,
+            Math.min(meta.duration-0.2,Number(s.sourceTime)||0)
+          ).toFixed(3);
+
           provider=clip.provider||'Stock';
           search=clip.search||qs[0]||'';
         }else{
