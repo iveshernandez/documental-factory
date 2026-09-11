@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.7 Groq Vision Fast</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.8 Free Vision Contact Sheet</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo localmente, detecta cambios visuales y envía solo 3 fotogramas clave con segundos reales a Groq Vision en una sola petición. Así evitamos casi por completo las esperas de límite temporal sin bajar la calidad final del MP4. La duración elegida se usa como objetivo aproximado para calcular el tamaño del guion. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre TODO el video localmente, elige 6 momentos importantes y los combina en UNA sola imagen resumen para Groq Vision. Usa una sola petición y elimina la llamada extra de resumen. Si se acaba el límite gratuito de Groq Vision, continúa automáticamente sin esperar. La duración elegida se usa como objetivo aproximado para calcular el tamaño del guion. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -2396,11 +2396,11 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
     // Choose a bounded number of representative frames.
     // We keep chronological coverage AND prioritize strong visual changes.
-    const target=3;
+    const target=6;
     const selected=new Set([0,samples.length-1]);
 
     // Uniform anchors guarantee that no long section of the video is ignored.
-    const uniformCount=3;
+    const uniformCount=4;
     for(let k=0;k<uniformCount;k++){
       const idx=Math.round(k*(samples.length-1)/Math.max(1,uniformCount-1));
       selected.add(idx);
@@ -2431,7 +2431,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       vStatus(`Preparando fotograma inteligente ${j+1}/${indices.length} · ${s.time.toFixed(1)} s…`);
       await seekVideo(video,s.time);
 
-      const maxW=320;
+      const maxW=220;
       const aspect=(video.videoHeight||1280)/(video.videoWidth||720);
       const w=Math.min(maxW,video.videoWidth||maxW);
       const h=Math.max(180,Math.round(w*aspect));
@@ -2441,12 +2441,12 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
       frames.push({
         time:s.time,
-        image:canvas.toDataURL('image/jpeg',0.58),
+        image:canvas.toDataURL('image/jpeg',0.52),
         change:s.change
       });
     }
 
-    vStatus(`✅ Video completo escaneado: ${scanCount} puntos · 3 fotogramas clave para Groq Vision.`);
+    vStatus(`✅ Video completo escaneado: ${scanCount} puntos · ${frames.length} momentos clave locales.`);
     return frames;
   }
   function sleepMs(ms){return new Promise(r=>setTimeout(r,ms));}
@@ -2519,267 +2519,152 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     throw new Error('JSON inválido');
   }
 
+  async function buildVisionContactSheet(frames){
+    // 6 local keyframes -> ONE compact image sent to Groq.
+    // This preserves a chronological overview while using only one Vision image/request.
+    const chosen=frames.slice(0,6);
+    const cols=2, rows=Math.ceil(chosen.length/cols);
+    const cellW=240, cellH=230;
+    const canvas=document.createElement('canvas');
+    canvas.width=cols*cellW;
+    canvas.height=rows*cellH;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#111';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    for(let i=0;i<chosen.length;i++){
+      const f=chosen[i];
+      const img=new Image();
+      await new Promise((resolve,reject)=>{
+        img.onload=resolve; img.onerror=reject; img.src=f.image;
+      });
+      const x=(i%cols)*cellW, y=Math.floor(i/cols)*cellH;
+      const labelH=26;
+      const availH=cellH-labelH;
+      const scale=Math.max(cellW/img.width,availH/img.height);
+      const dw=img.width*scale, dh=img.height*scale;
+      const dx=x+(cellW-dw)/2, dy=y+labelH+(availH-dh)/2;
+      ctx.save();
+      ctx.beginPath();ctx.rect(x,y+labelH,cellW,availH);ctx.clip();
+      ctx.drawImage(img,dx,dy,dw,dh);
+      ctx.restore();
+
+      ctx.fillStyle='#111';ctx.fillRect(x,y,cellW,labelH);
+      ctx.fillStyle='#fff';ctx.font='bold 15px sans-serif';
+      ctx.fillText(`${i+1} · ${Number(f.time).toFixed(1)} s`,x+8,y+18);
+    }
+    return {
+      image:canvas.toDataURL('image/jpeg',0.55),
+      frames:chosen
+    };
+  }
+
   async function groqVisionAnalyze(frames,fileName,meta){
     const key=(V('groq')?.value||'').trim();
     if(!key)throw new Error('Falta Groq API. Guárdala primero en la pestaña TXT.');
 
-    // Groq Qwen vision accepts max 3 images per request.
-    // Analyze the 3 most useful chronological keyframes in ONE request. The whole video was already scanned locally.
-    const batches=[];
-    for(let i=0;i<frames.length;i+=3)batches.push(frames.slice(i,i+3));
+    vStatus('Groq Vision económico: preparando 1 sola imagen resumen…');
+    const sheet=await buildVisionContactSheet(frames);
+    const times=sheet.frames.map((f,i)=>`${i+1}=${Number(f.time).toFixed(1)}s`).join(', ');
 
-    const partials=[];
-
-    for(let b=0;b<batches.length;b++){
-      const group=batches[b];
-      vStatus(`Groq Vision: analizando bloque ${b+1} de ${batches.length}…`);
-
-      const content=[{
+    const content=[
+      {
         type:'text',
-        text:`Estos fotogramas pertenecen al MISMO video. Forman parte de un análisis que recorrió el video completo y están en orden cronológico.
-Analiza SOLO lo que realmente aparece en estas imágenes.
-
+        text:`Esta es UNA hoja de contacto cronológica de un mismo video.
+Cada recuadro está numerado y muestra su segundo real.
+TIEMPOS: ${times}
 ARCHIVO: "${fileName}"
-DURACIÓN ORIGINAL: ${meta.duration.toFixed(1)} s
-BLOQUE: ${b+1} de ${batches.length}
+DURACIÓN: ${meta.duration.toFixed(1)} s
 
-RESPONDE SOLO con líneas de texto usando EXACTAMENTE este formato:
-FRAME|numero|segundo|descripcion visible|accion visible
+Describe SOLO lo visible. Devuelve exactamente una línea por recuadro:
+FRAME|numero|descripcion visible|accion visible
+Al final, si hace falta:
 UNKNOWN|detalle no confirmado
 
-Ejemplo:
-FRAME|1|3.2|Un zorro sobre una mesa metálica|Una persona sostiene al zorro
-FRAME|2|7.8|Primer plano de una pata|Una persona manipula la pata
-UNKNOWN|No se puede confirmar si la persona es veterinaria
-
 REGLAS:
-- No inventes medicamentos, diagnósticos, familiares, lugares, tratamientos, fechas ni emociones.
-- Si no sabes si alguien es veterinario, dueño o rescatista, di "una persona".
-- Mantén el orden de los fotogramas.
-- Responde en español.`
-      }];
+- Español neutro.
+- No inventes diagnósticos, tratamientos, familiares, lugares, fechas ni emociones.
+- Si no conoces el rol de una persona, di "una persona".
+- Máximo ${sheet.frames.length} líneas FRAME.
+- No uses JSON ni markdown.`
+      },
+      {type:'image_url',image_url:{url:sheet.image}}
+    ];
 
-      group.forEach((f,j)=>{
-        const globalIndex=b*3+j+1;
-        content.push({
-          type:'text',
-          text:`FOTOGRAMA ${globalIndex} — segundo ${f.time.toFixed(1)}`
-        });
-        content.push({
-          type:'image_url',
-          image_url:{url:f.image}
-        });
-      });
-
-      const req=await groqFetchWith429Retry(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-          body:JSON.stringify({
-            model:'qwen/qwen3.6-27b',
-            messages:[{role:'user',content}],
-            reasoning_effort:'none',
-            temperature:0.1,
-            max_tokens:420
-          })
-        },
-        `Groq Vision bloque ${b+1}/${batches.length}`,
-        4
-      );
-
-      const r=req.response;
-      const raw=req.raw;
-      if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,500)}`);
-
-      const data=JSON.parse(raw);
-      const txt=data?.choices?.[0]?.message?.content||'';
-
-      const timeline=[];
-      const unknowns=[];
-      const visionRows=[];
-
-      for(const rawLine of String(txt).split(/\r?\n/)){
-        const line=rawLine.trim();
-        if(!line)continue;
-
-        if(/^FRAME\|/i.test(line)){
-          const parts=line.split('|');
-          if(parts.length>=5 && visionRows.length<group.length){
-            visionRows.push({
-              visible:parts[3].trim(),
-              action:parts.slice(4).join('|').trim()
-            });
-          }
-        }else if(/^UNKNOWN\|/i.test(line)){
-          const detail=line.replace(/^UNKNOWN\|/i,'').trim();
-          if(detail)unknowns.push(detail);
-        }
-      }
-
-      // If Qwen did not follow the simple line format, normalize once.
-      if(!visionRows.length){
-        vStatus(`Normalizando respuesta del bloque ${b+1}…`);
-
-        const normalizeReq=await groqFetchWith429Retry(
-          'https://api.groq.com/openai/v1/chat/completions',
-          {
-            method:'POST',
-            headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-            body:JSON.stringify({
-              model:'openai/gpt-oss-20b',
-              messages:[
-                {
-                  role:'system',
-                  content:'Convierte el texto recibido en líneas simples. Una sola línea por fotograma, máximo 3: FRAME|numero|segundo|descripcion visible|accion visible. Luego UNKNOWN|detalle si aplica. No uses JSON ni markdown.'
-                },
-                {role:'user',content:txt}
-              ],
-              temperature:0,
-              max_tokens:500
-            })
-          },
-          `Normalización bloque ${b+1}`,
-          3
-        );
-
-        if(normalizeReq.response.ok){
-          const normData=JSON.parse(normalizeReq.raw);
-          const normText=String(normData?.choices?.[0]?.message?.content||'');
-          for(const rawLine of normText.split(/\r?\n/)){
-            const line=rawLine.trim();
-            if(/^FRAME\|/i.test(line) && visionRows.length<group.length){
-              const parts=line.split('|');
-              if(parts.length>=5){
-                visionRows.push({
-                  visible:parts[3].trim(),
-                  action:parts.slice(4).join('|').trim()
-                });
-              }
-            }else if(/^UNKNOWN\|/i.test(line)){
-              const detail=line.replace(/^UNKNOWN\|/i,'').trim();
-              if(detail)unknowns.push(detail);
-            }
-          }
-        }
-      }
-
-      // IMPORTANT: timestamps always come from the browser-extracted frames,
-      // never from numbers generated by Qwen.
-      for(let j=0;j<group.length;j++){
-        const f=group[j];
-        const row=visionRows[j]||{};
-        timeline.push({
-          frame:b*3+j+1,
-          time:Number(f.time)||0,
-          visible:row.visible||'Fotograma verificado del video original',
-          action:row.action||''
-        });
-      }
-      partials.push({timeline,unknowns});
-
-      // No fixed delay here. If Groq actually reaches its temporary limit,
-      // groqFetchWith429Retry waits only for the exact retry window returned by Groq.
-    }
-
-    // Merge the three visual passes.
-    const mergedRaw=partials
-      .flatMap(p=>Array.isArray(p.timeline)?p.timeline:[])
-      .filter(Boolean)
-      .sort((a,b)=>Number(a.time||0)-Number(b.time||0));
-
-    // Exactly one verified entry per real timestamp; remove accidental duplicates.
-    const mergedTimeline=[];
-    for(const row of mergedRaw){
-      const t=Number(row.time||0);
-      const prev=mergedTimeline[mergedTimeline.length-1];
-      if(prev && Math.abs(Number(prev.time||0)-t)<0.20)continue;
-      mergedTimeline.push(row);
-    }
-
-    const mergedUnknowns=[...new Set(
-      partials.flatMap(p=>Array.isArray(p.unknowns)?p.unknowns:[])
-        .filter(Boolean)
-        .map(String)
-    )];
-
-    if(!mergedTimeline.length){
-      throw new Error('Groq Vision no pudo construir la línea de tiempo.');
-    }
-
-    // One final TEXT-ONLY pass summarizes the already-verified timeline.
-    // No images here, so there is no 3-image limit.
-    vStatus('Groq Vision: consolidando línea de tiempo…');
-
-    const summaryPrompt=`Resume esta línea de tiempo visual SIN agregar hechos nuevos.
-
-ARCHIVO: "${fileName}"
-TIMELINE VERIFICADA:
-${JSON.stringify(mergedTimeline)}
-
-NO CONFIRMADO:
-${JSON.stringify(mergedUnknowns)}
-
-Devuelve SOLO JSON válido:
-{
-  "subject":"sujeto principal",
-  "environment":"entorno general",
-  "verified_summary":"resumen estrictamente basado en lo visible"
-}
-
-No inventes nada que no aparezca en la timeline.`;
-
-    const sreq=await groqFetchWith429Retry(
+    const req=await groqFetchWith429Retry(
       'https://api.groq.com/openai/v1/chat/completions',
       {
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
         body:JSON.stringify({
-          model:'openai/gpt-oss-20b',
-          messages:[
-            {role:'system',content:'Devuelve únicamente JSON válido. Todos los valores de texto destinados al título, narración, subtítulos, descripciones y escenas deben estar escritos en ESPAÑOL NEUTRO.'},
-            {role:'user',content:summaryPrompt}
-          ],
+          model:'qwen/qwen3.6-27b',
+          messages:[{role:'user',content}],
+          reasoning_effort:'none',
           temperature:0.1,
-          max_tokens:700,
-          response_format:{
-            type:'json_schema',
-            json_schema:{
-              name:'vision_summary',
-              strict:true,
-              schema:{
-                type:'object',
-                additionalProperties:false,
-                properties:{
-                  subject:{type:'string'},
-                  environment:{type:'string'},
-                  verified_summary:{type:'string'}
-                },
-                required:['subject','environment','verified_summary']
-              }
-            }
-          }
+          max_tokens:380
         })
       },
-      'Groq resumen',
-      4
+      'Groq Vision económico',
+      0
     );
 
-    const sr=sreq.response;
-    const sraw=sreq.raw;
-    if(!sr.ok)throw new Error(`Groq resumen ${sr.status}: ${sraw.slice(0,500)}`);
+    // IMPORTANT for free use: never wait 55 seconds / 12 minutes.
+    // If the free Vision quota is exhausted, continue immediately with local timestamps.
+    if(!req.response.ok){
+      if(req.response.status===429){
+        vStatus('⚡ Groq Vision llegó al límite gratis. Continuando sin esperar…');
+        return {
+          subject:'Contenido del video original',
+          environment:'Entorno visible en el video',
+          timeline:sheet.frames.map((f,i)=>({
+            frame:i+1,time:Number(f.time)||0,
+            visible:'Momento clave detectado localmente',
+            action:''
+          })),
+          verified_summary:'Se conservarán los momentos y tiempos detectados localmente, sin inventar información visual.',
+          unknowns:['Groq Vision omitido por límite gratuito; no se esperó un reintento.']
+        };
+      }
+      throw new Error(`Groq Vision ${req.response.status}: ${req.raw.slice(0,500)}`);
+    }
 
-    const sdata=JSON.parse(sraw);
-    const stxt=sdata?.choices?.[0]?.message?.content||'';
-    let summary={};
-    try{summary=JSON.parse(stxt);}catch(e){}
+    const data=JSON.parse(req.raw);
+    const txt=String(data?.choices?.[0]?.message?.content||'');
+    const rows=[], unknowns=[];
+    for(const rawLine of txt.split(/\r?\n/)){
+      const line=rawLine.trim();
+      if(/^FRAME\|/i.test(line) && rows.length<sheet.frames.length){
+        const parts=line.split('|');
+        if(parts.length>=4){
+          rows.push({
+            visible:parts[2].trim(),
+            action:parts.slice(3).join('|').trim()
+          });
+        }
+      }else if(/^UNKNOWN\|/i.test(line)){
+        const d=line.replace(/^UNKNOWN\|/i,'').trim();
+        if(d)unknowns.push(d);
+      }
+    }
 
+    const timeline=sheet.frames.map((f,i)=>({
+      frame:i+1,
+      time:Number(f.time)||0, // browser timestamp is authoritative
+      visible:rows[i]?.visible||'Momento clave verificado del video original',
+      action:rows[i]?.action||''
+    }));
+
+    // No extra Groq "summary" call: build a compact summary locally.
+    // This saves another API request/tokens for every video.
+    const descriptions=timeline
+      .map(x=>[x.visible,x.action].filter(Boolean).join('. '))
+      .filter(Boolean);
     return {
-      subject:summary.subject||'No determinado',
-      environment:summary.environment||'No determinado',
-      timeline:mergedTimeline,
-      verified_summary:summary.verified_summary||'',
-      unknowns:mergedUnknowns
+      subject:timeline[0]?.visible||'Contenido principal del video',
+      environment:'Entorno mostrado en los fotogramas clave',
+      timeline,
+      verified_summary:descriptions.join(' ').slice(0,1800),
+      unknowns:[...new Set(unknowns)]
     };
   }
   function targetSceneCount(seconds){return Math.max(12,Math.min(36,Math.round(seconds/5)));}
