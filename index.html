@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0 Video → Guion IA</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0.2 Título + Descarga</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -157,6 +157,18 @@
     <div id="videoAIStatus" class="status mut">Selecciona hasta 6 videos. La cola comenzará automáticamente.</div>
     <div class="progress"><div id="videoAIBar"></div></div>
     <div id="videoAIQueue" class="videoQueue"></div>
+
+    <div class="row">
+      <div>
+        <label>Título final generado por IA</label>
+        <input id="videoAIFinalTitle" type="text" readonly placeholder="Aquí aparecerá el título final">
+      </div>
+      <div>
+        <label>Nombre de descarga</label>
+        <input id="videoAIDownloadName" type="text" readonly placeholder="titulo-final.mp4">
+      </div>
+    </div>
+    <div class="tiny">Ese mismo título se imprime en el video durante toda la duración. Los subtítulos usan el mismo estilo de la pestaña TXT: texto blanco, palabras destacadas en amarillo y borde oscuro.</div>
 
     <label>Análisis visual del video actual</label>
     <div id="videoAIAnalysis" class="inputLike videoAnalysis">En espera.</div>
@@ -2271,7 +2283,7 @@ Devuelve SOLO JSON válido:
     {
       "narration":"fragmento del guion",
       "source":"original",
-      "queries":[]
+      "queries":["visual reference 1","visual reference 2","visual reference 3","visual reference 4","visual reference 5"]
     },
     {
       "narration":"fragmento del guion",
@@ -2292,7 +2304,7 @@ REGLAS:
 - Usa "stock" en alrededor de ${stockCount} escenas. Debe haber stock desde el primer tercio hasta el final, no todo agrupado.
 - Nunca pongas más de 2 escenas stock consecutivas.
 - Las escenas originales consecutivas deben narrar acciones o momentos distintos.
-- Para cada escena stock genera EXACTAMENTE 5 búsquedas EN INGLÉS, concretas y visuales.
+- Para TODAS las escenas genera EXACTAMENTE 5 búsquedas EN INGLÉS, concretas y visuales. En escenas originales sirven como respaldo; en escenas stock se usan para buscar clips.
 - Las búsquedas stock deben mantener el sujeto/contexto correcto y evitar conceptos abstractos.
 - Cada fragmento de narración debe ser suficientemente corto para aproximadamente 4–6 segundos.`;
 
@@ -2305,13 +2317,56 @@ REGLAS:
           {role:'system',content:'Devuelve únicamente JSON válido. No uses markdown.'},
           {role:'user',content:prompt}
         ],
-        temperature:0.45,
+        temperature:0.35,
+        reasoning_effort:'low',
+        reasoning_format:'hidden',
         max_tokens:6500,
-        response_format:{type:'json_object'}
+        response_format:{
+          type:'json_schema',
+          json_schema:{
+            name:'video_edit_plan',
+            strict:true,
+            schema:{
+              type:'object',
+              additionalProperties:false,
+              properties:{
+                title:{type:'string'},
+                scenes:{
+                  type:'array',
+                  minItems:scenes,
+                  maxItems:scenes,
+                  items:{
+                    type:'object',
+                    additionalProperties:false,
+                    properties:{
+                      narration:{type:'string'},
+                      source:{type:'string',enum:['original','stock']},
+                      queries:{
+                        type:'array',
+                        items:{type:'string'},
+                        minItems:5,
+                        maxItems:5
+                      }
+                    },
+                    required:['narration','source','queries']
+                  }
+                }
+              },
+              required:['title','scenes']
+            }
+          }
+        }
       })
     });
     const raw=await r.text();
-    if(!r.ok)throw new Error(`Groq guion ${r.status}: ${raw.slice(0,300)}`);
+    if(!r.ok){
+      let detail=raw.slice(0,500);
+      try{
+        const ej=JSON.parse(raw);
+        detail=ej?.error?.message||detail;
+      }catch(_){}
+      throw new Error(`Groq guion ${r.status}: ${detail}`);
+    }
     const data=JSON.parse(raw);
     const txt=data?.choices?.[0]?.message?.content||'';
     let plan;
@@ -2457,8 +2512,16 @@ REGLAS:
       V('videoTitle').value=title;
       V('downloadName').value=(typeof safeFileName==='function'?safeFileName(title):title.replace(/[^\w\-]+/g,'_')+'.mp4');
       V('script').value=script;
+
+      // Video → Guion IA always keeps the same title/subtitle system as TXT mode.
+      if(V('titleOverlay'))V('titleOverlay').value='yes';
+      if(V('subtitles'))V('subtitles').value='yes';
+
       window.documentalVideoTitle=title;
       window.documentalDownloadName=V('downloadName').value;
+
+      if(V('videoAIFinalTitle'))V('videoAIFinalTitle').value=title;
+      if(V('videoAIDownloadName'))V('videoAIDownloadName').value=window.documentalDownloadName;
       window.documentalFactoryAudioBlob=null;
       window.documentalFactoryAudioMeta=null;
       V('videoAIScript').value=script;
@@ -2473,7 +2536,7 @@ REGLAS:
       if(!window.documentalFactoryAudioBlob)throw new Error('Alexander terminó sin crear audio.');
       vBar(66);
 
-      vStatus('Renderizando versión transformada…');
+      vStatus(`Renderizando “${title}” con título y subtítulos…`);
       const ok=await window.createDocumentalFinalVideo?.();
       if(ok!==true)throw new Error('FFmpeg no confirmó el render final.');
 
@@ -2564,7 +2627,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const required=['txtFile','videoTitle','downloadName','script','duration','sceneCount',
     'groq','pexels','pixabay','scenes','titleOverlay','subtitles','musicVol',
     'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar','queueStatus',
-    'tabTxt','tabVideo','videoFilesAI','videoTargetDuration','videoAIStatus','videoAIQueue','videoAIScript'];
+    'tabTxt','tabVideo','videoFilesAI','videoTargetDuration','videoAIStatus','videoAIQueue','videoAIScript','videoAIFinalTitle','videoAIDownloadName'];
   const missing=required.filter(id=>!document.getElementById(id));
   if(missing.length){
     const s=document.getElementById('autoStatus');
