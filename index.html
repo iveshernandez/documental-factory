@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.9 Duration Word Limit</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v8.0 No Repeat + Fast Progress</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -651,6 +651,16 @@ async function loadFFmpeg(){
 
     const ffmpeg=new FFmpeg();
     ffmpeg.on('log',({message})=>console.log('[FFmpeg]',message));
+    ffmpeg.on('progress',({progress,time})=>{
+      const ctx=window.documentalFfmpegProgressCtx;
+      if(!ctx)return;
+      const p=Math.max(0,Math.min(1,Number(progress)||0));
+      const overall=Math.max(0,Math.min(99,ctx.base+ctx.span*p));
+      rb(overall);
+      const local=Math.round(p*100);
+      const total=Math.round(overall);
+      rs(`${ctx.label} · ${local}% de esta etapa · ${total}% total`);
+    });
 
     // Usamos el CORE ESM como Blob. El worker principal también es Blob,
     // por lo que ya no existe un Worker cruzado hacia esm.sh.
@@ -1253,8 +1263,15 @@ async function createFinalVideo(){
       const output=`part_${i}.mp4`;
       partNames.push(output);
 
-      rs(`4/5 Render rápido · escena ${i+1} de ${sceneEls.length}…`);
-      rb(15+Math.round((i/sceneEls.length)*60));
+      const sceneBase=15+(i/sceneEls.length)*60;
+      const sceneSpan=60/sceneEls.length;
+      window.documentalFfmpegProgressCtx={
+        base:sceneBase,
+        span:sceneSpan,
+        label:`4/5 Render escena ${i+1}/${sceneEls.length}`
+      };
+      rs(`4/5 Render escena ${i+1}/${sceneEls.length} · 0% · ${Math.round(sceneBase)}% total`);
+      rb(sceneBase);
 
       let usedFallback=false;
       const cachedSource=await getCachedSourceFile(
@@ -1335,7 +1352,8 @@ async function createFinalVideo(){
       }
     }
 
-    rs('5/5 Uniendo bloques, voz y música…');
+    window.documentalFfmpegProgressCtx={base:78,span:8,label:'5/5 Uniendo bloques'};
+    rs('5/5 Uniendo bloques · 0% de esta etapa…');
     rb(78);
 
     const concat=chunkNames.map(n=>`file '${n}'`).join('\n');
@@ -1369,7 +1387,8 @@ async function createFinalVideo(){
     const mixKB=(writtenBytes/1024).toFixed(1);
     rs(`5/5 Mezcla REAL creada · música RMS ${mixResult.musicRms.toFixed(3)} · voz RMS ${mixResult.voiceRms.toFixed(3)} · ${mixKB} KB.`);
 
-    rs('5/5 Nivelando voz para reproducción en Facebook…');
+    window.documentalFfmpegProgressCtx={base:86,span:10,label:'5/5 Audio + MP4 final'};
+    rs('5/5 Audio + MP4 final · 0% de esta etapa…');
     await ffmpeg.exec([
       '-i','joined.mp4','-i','mixed_browser.wav',
       '-map','0:v:0','-map','1:a:0',
@@ -1381,6 +1400,7 @@ async function createFinalVideo(){
     rb(96);
 
     // Decode final MP4 audio once: if AAC audio is missing/corrupt, do not download.
+    window.documentalFfmpegProgressCtx=null;
     rs('5/5 Verificando audio dentro del MP4 final…');
     await ffmpeg.exec([
       '-i','documental_final.mp4','-vn','-t','2',
@@ -1410,12 +1430,14 @@ async function createFinalVideo(){
     a.click();
     a.remove();
 
+    window.documentalFfmpegProgressCtx=null;
     rb(100);
-    rs(`✅ Video terminado: ${total.toFixed(1)} s exactos, 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
+    rs(`✅ Video terminado: ${total.toFixed(1)} s naturales, 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
 
     await clean(ffmpeg,[...partNames,...chunkNames,...sourceFilesToClean,sharedTitleFile,'concat.txt','joined.mp4','voice.wav','voice_target.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4'].filter(Boolean));
     return true;
   }catch(err){
+    window.documentalFfmpegProgressCtx=null;
     console.error(err);
     const msg=(err?.message||String(err));
     if(/memory access out of bounds|out of memory|abort\(memory/i.test(msg)){
@@ -2814,7 +2836,7 @@ REGLAS CRÍTICAS:
           messages:[
             {
               role:'system',
-              content:'Escribe únicamente en español neutro para título y narración. Devuelve solo el formato TITLE/SCENE indicado por el usuario. No uses JSON ni markdown. Las QUERY deben estar en inglés. Respeta estrictamente el objetivo total de palabras indicado: no lo excedas en más de 4%. No agregues escenas de relleno ni hechos no verificados.'
+              content:'Escribe únicamente en español neutro para título y narración. Devuelve solo el formato TITLE/SCENE indicado por el usuario. No uses JSON ni markdown. Las QUERY deben estar en inglés. Respeta el objetivo total de palabras solo si existe información visual suficiente. PROHIBIDO repetir frases, ideas o eventos para alcanzar la duración. Cada hecho visible se narra una sola vez. No agregues escenas de relleno ni hechos no verificados. Si faltan hechos verificados, entrega un guion más corto antes que repetir o inventar.'
             },
             {role:'user',content:prompt}
           ],
@@ -3126,6 +3148,114 @@ REGLAS CRÍTICAS:
   }
 
 
+
+  function cleanNarrationRepeats(text){
+    let tokens=String(text||'').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+    const norm=t=>String(t||'').toLowerCase().normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,'');
+
+    // Remove immediately repeated word groups such as:
+    // "brindándole consuelo ... vínculo humano-animal" repeated many times.
+    let changed=true, guard=0;
+    while(changed && guard++<12){
+      changed=false;
+      outer:
+      for(let i=0;i<tokens.length;i++){
+        const maxLen=Math.min(24,Math.floor((tokens.length-i)/2));
+        for(let len=maxLen;len>=3;len--){
+          let same=true;
+          for(let k=0;k<len;k++){
+            if(norm(tokens[i+k])!==norm(tokens[i+len+k])){same=false;break;}
+          }
+          if(same){
+            tokens.splice(i+len,len);
+            changed=true;
+            break outer;
+          }
+        }
+      }
+    }
+
+    let out=tokens.join(' ').replace(/\s+([,.;:!?])/g,'$1');
+
+    // Remove exact repeated sentences, even when they are separated.
+    const pieces=out.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[out];
+    const seen=new Set(), kept=[];
+    for(const piece of pieces){
+      const key=piece.toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^\p{L}\p{N}\s]/gu,'')
+        .replace(/\s+/g,' ').trim();
+      if(!key || seen.has(key))continue;
+      seen.add(key);
+      kept.push(piece.trim());
+    }
+    return kept.join(' ').replace(/\s+/g,' ').trim();
+  }
+
+  function sanitizePlanNarration(plan){
+    const scenes=Array.isArray(plan?.scenes)?plan.scenes:[];
+    const seenGlobal=new Set();
+    const cleaned=[];
+
+    for(const scene of scenes){
+      let narration=cleanNarrationRepeats(scene.narration||'');
+      if(!narration)continue;
+
+      // Global exact-sentence de-duplication across different scenes.
+      const parts=narration.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[narration];
+      const keep=[];
+      for(const p of parts){
+        const key=p.toLowerCase().normalize('NFD')
+          .replace(/[\u0300-\u036f]/g,'')
+          .replace(/[^\p{L}\p{N}\s]/gu,'')
+          .replace(/\s+/g,' ').trim();
+        if(!key || seenGlobal.has(key))continue;
+        seenGlobal.add(key);
+        keep.push(p.trim());
+      }
+      narration=keep.join(' ').trim();
+      if(narration)cleaned.push({...scene,narration});
+    }
+    return {...plan,scenes:cleaned};
+  }
+
+  function mergePlanForRender(plan,naturalSeconds){
+    const scenes=Array.isArray(plan?.scenes)?plan.scenes:[];
+    if(!scenes.length)return plan;
+
+    // About one visual segment every 6 seconds. Fewer FFmpeg launches = much faster render.
+    const desired=Math.max(10,Math.min(28,Math.round(Number(naturalSeconds||60)/6)));
+    if(scenes.length<=desired)return plan;
+
+    const merged=[];
+    for(let g=0;g<desired;g++){
+      const start=Math.floor(g*scenes.length/desired);
+      const end=Math.floor((g+1)*scenes.length/desired);
+      const group=scenes.slice(start,Math.max(start+1,end));
+      if(!group.length)continue;
+
+      const original=group.find(s=>String(s.source||'').toLowerCase()==='original')||group[0];
+      const queries=[];
+      for(const s of group){
+        for(const q of (Array.isArray(s.queries)?s.queries:[])){
+          const qq=String(q||'').trim();
+          if(qq && !queries.includes(qq))queries.push(qq);
+          if(queries.length>=5)break;
+        }
+        if(queries.length>=5)break;
+      }
+      while(queries.length<5)queries.push(queries[0]||'wildlife documentary footage');
+
+      merged.push({
+        ...original,
+        narration:group.map(s=>String(s.narration||'').trim()).filter(Boolean).join(' '),
+        queries:queries.slice(0,5)
+      });
+    }
+    return {...plan,scenes:merged};
+  }
+
   function capPlanNarrationWords(plan,targetSeconds){
     const target=Math.max(1,Math.round(Number(targetSeconds)||60));
     const ideal=targetWords(target);
@@ -3201,6 +3331,7 @@ REGLAS CRÍTICAS:
       vStatus(`Creando guion de aproximadamente ${targetSeconds} segundos…`);
 
       let plan=await groqBuildVideoPlan(analysis,file.name,targetSeconds,style,meta.duration);
+      plan=sanitizePlanNarration(plan);
       plan=capPlanNarrationWords(plan,targetSeconds);
       currentVideoPlan=plan;
       const title=String(plan.title||file.name.replace(/\.[^.]+$/,'')).trim();
@@ -3224,9 +3355,6 @@ REGLAS CRÍTICAS:
       V('videoAIScript').value=script;
       vBar(38);
 
-      await buildSceneCardsFromVideoPlan(plan,meta);
-      vBar(62);
-
       vStatus('Generando narración con Alexander V a velocidad natural…');
       window.documentalFactoryAudioBlob=null;
       window.documentalFactoryAudioMeta=null;
@@ -3238,9 +3366,15 @@ REGLAS CRÍTICAS:
       if(!naturalSeconds){
         naturalSeconds=await blobDuration(window.documentalFactoryAudioBlob);
       }
+      vBar(52);
+
+      const renderPlan=mergePlanForRender(plan,naturalSeconds);
+      currentVideoPlan=renderPlan;
+      vStatus(`Preparando ${renderPlan.scenes.length} escenas optimizadas para ${naturalSeconds.toFixed(1)} s…`);
+      await buildSceneCardsFromVideoPlan(renderPlan,meta);
       vBar(68);
 
-      vStatus(`Renderizando “${title}” · duración natural aproximada ${naturalSeconds.toFixed(1)} s…`);
+      vStatus(`Renderizando “${title}” · ${renderPlan.scenes.length} escenas · duración natural ${naturalSeconds.toFixed(1)} s…`);
       const ok=await window.createDocumentalFinalVideo?.();
       if(ok!==true)throw new Error('FFmpeg no confirmó el render final.');
 
