@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.5 Spanish Only</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.6 Script No-JSON</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -2820,7 +2820,7 @@ No inventes nada que no aparezca en la timeline.`;
     });
 
     const prompt=`Eres guionista y editor profesional de videos verticales.
-Debes escribir una narración NUEVA pero VISUALMENTE FIEL al material analizado.
+Debes escribir una narración NUEVA pero VISUALMENTE FIEL al material analizado. TODO el título y toda la narración deben estar en ESPAÑOL NEUTRO, aunque el archivo o el análisis estén en inglés.
 
 HECHOS VISUALES VERIFICADOS:
 ${verified}
@@ -2833,18 +2833,22 @@ PALABRAS OBJETIVO: ${words} palabras. Mantente entre ${Math.round(words*0.97)} y
 ESCENAS OBJETIVO: ${scenes}
 CLIPS COMPLEMENTARIOS APROX.: ${stockCount}
 
-Devuelve SOLO JSON válido:
-{
-  "title":"título fiel a lo visible",
-  "scenes":[
-    {
-      "narration":"fragmento del guion",
-      "source":"original",
-      "sourceTime":12.5,
-      "queries":["q1","q2","q3","q4","q5"]
-    }
-  ]
-}
+RESPONDE SOLO con texto estructurado, SIN JSON y SIN markdown, usando exactamente este formato:
+
+TITLE|Título en español
+
+SCENE
+SOURCE|original
+TIME|12.5
+NARRATION|Narración de esta escena en español neutro y en una sola línea.
+QUERY1|english search query
+QUERY2|english search query
+QUERY3|english search query
+QUERY4|english search query
+QUERY5|english search query
+ENDSCENE
+
+Repite el bloque SCENE hasta completar el video.
 
 REGLAS CRÍTICAS:
 - No inventes acontecimientos.
@@ -2860,59 +2864,34 @@ REGLAS CRÍTICAS:
 - Para todas las escenas genera EXACTAMENTE 5 búsquedas EN INGLÉS.
 - Aproximadamente ${stockCount} escenas pueden ser stock, distribuidas a lo largo del video.
 - No más de 2 escenas stock consecutivas.
-- El título también debe evitar afirmar detalles no verificados.`;
+- El título también debe evitar afirmar detalles no verificados.\n- IDIOMA OBLIGATORIO: título y NARRATION siempre en ESPAÑOL NEUTRO. QUERY1 a QUERY5 siempre en INGLÉS.`;
 
-    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body:JSON.stringify({
-        model:'openai/gpt-oss-20b',
-        messages:[
-          {role:'system',content:'Devuelve únicamente JSON válido y usa exclusivamente los hechos visuales verificados.'},
-          {role:'user',content:prompt}
-        ],
-        temperature:0.18,
-        reasoning_effort:'low',
-        reasoning_format:'hidden',
-        max_tokens:6500,
-        response_format:{
-          type:'json_schema',
-          json_schema:{
-            name:'video_edit_plan',
-            strict:true,
-            schema:{
-              type:'object',
-              additionalProperties:false,
-              properties:{
-                title:{type:'string'},
-                scenes:{
-                  type:'array',
-                  items:{
-                    type:'object',
-                    additionalProperties:false,
-                    properties:{
-                      narration:{type:'string'},
-                      source:{type:'string',enum:['original','stock']},
-                      sourceTime:{type:'number'},
-                      queries:{
-                        type:'array',
-                        items:{type:'string'},
-                        minItems:5,
-                        maxItems:5
-                      }
-                    },
-                    required:['narration','source','sourceTime','queries']
-                  }
-                }
-              },
-              required:['title','scenes']
-            }
-          }
-        }
-      })
-    });
+    const scriptReq=await groqFetchWith429Retry(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({
+          model:'openai/gpt-oss-20b',
+          messages:[
+            {
+              role:'system',
+              content:'Escribe únicamente en español neutro para título y narración. Devuelve solo el formato TITLE/SCENE indicado por el usuario. No uses JSON ni markdown. Las QUERY deben estar en inglés.'
+            },
+            {role:'user',content:prompt}
+          ],
+          temperature:0.16,
+          reasoning_effort:'low',
+          reasoning_format:'hidden',
+          max_tokens:6500
+        })
+      },
+      'Groq guion',
+      4
+    );
 
-    const raw=await r.text();
+    const r=scriptReq.response;
+    const raw=scriptReq.raw;
     if(!r.ok){
       let detail=raw.slice(0,500);
       try{detail=JSON.parse(raw)?.error?.message||detail;}catch(_){}
@@ -2920,10 +2899,105 @@ REGLAS CRÍTICAS:
     }
 
     const data=JSON.parse(raw);
-    const txt=data?.choices?.[0]?.message?.content||'';
-    let plan;
-    try{plan=JSON.parse(txt);}catch(e){throw new Error('Groq no devolvió un plan JSON válido.');}
-    if(!Array.isArray(plan.scenes) || !plan.scenes.length)throw new Error('La IA no devolvió escenas.');
+    const txt=String(data?.choices?.[0]?.message?.content||'').trim();
+
+    function parseScriptPlan(text){
+      const lines=String(text||'').replace(/\r/g,'').split('\n');
+      let title='';
+      const scenesOut=[];
+      let cur=null;
+
+      const flush=()=>{
+        if(!cur)return;
+        const narration=String(cur.narration||'').trim();
+        if(narration){
+          while(cur.queries.length<5){
+            const base=cur.queries[0]||'documentary animal footage';
+            cur.queries.push(base);
+          }
+          scenesOut.push({
+            narration,
+            source:String(cur.source||'original').toLowerCase()==='stock'?'stock':'original',
+            sourceTime:Number(cur.sourceTime)||0,
+            queries:cur.queries.slice(0,5)
+          });
+        }
+        cur=null;
+      };
+
+      for(const rawLine of lines){
+        const line=rawLine.trim();
+        if(!line)continue;
+
+        if(/^TITLE\|/i.test(line)){
+          title=line.replace(/^TITLE\|/i,'').trim();
+          continue;
+        }
+        if(/^SCENE$/i.test(line)){
+          flush();
+          cur={source:'original',sourceTime:0,narration:'',queries:[]};
+          continue;
+        }
+        if(/^ENDSCENE$/i.test(line)){
+          flush();
+          continue;
+        }
+        if(!cur)continue;
+
+        if(/^SOURCE\|/i.test(line)){
+          cur.source=line.replace(/^SOURCE\|/i,'').trim();
+        }else if(/^TIME\|/i.test(line)){
+          cur.sourceTime=Number(line.replace(/^TIME\|/i,'').trim())||0;
+        }else if(/^NARRATION\|/i.test(line)){
+          cur.narration=line.replace(/^NARRATION\|/i,'').trim();
+        }else if(/^QUERY[1-5]\|/i.test(line)){
+          const q=line.replace(/^QUERY[1-5]\|/i,'').trim();
+          if(q)cur.queries.push(q);
+        }
+      }
+      flush();
+
+      return {title:title||'Documental',scenes:scenesOut};
+    }
+
+    let plan=parseScriptPlan(txt);
+
+    // If the model ignored the requested plain-text structure, normalize it once.
+    if(!Array.isArray(plan.scenes) || !plan.scenes.length){
+      vStatus('Normalizando formato del guion…');
+
+      const normalizeReq=await groqFetchWith429Retry(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+          body:JSON.stringify({
+            model:'openai/gpt-oss-20b',
+            messages:[
+              {
+                role:'system',
+                content:'Convierte el texto a este formato exacto sin JSON ni markdown: TITLE|... seguido de bloques SCENE, SOURCE|original o stock, TIME|número, NARRATION|texto en español neutro, QUERY1..QUERY5 en inglés, ENDSCENE.'
+              },
+              {role:'user',content:txt}
+            ],
+            temperature:0,
+            max_tokens:6500
+          })
+        },
+        'Normalización guion',
+        3
+      );
+
+      if(normalizeReq.response.ok){
+        const nd=JSON.parse(normalizeReq.raw);
+        const nt=String(nd?.choices?.[0]?.message?.content||'').trim();
+        plan=parseScriptPlan(nt);
+      }
+    }
+
+    if(!Array.isArray(plan.scenes) || !plan.scenes.length){
+      throw new Error('Groq no devolvió escenas utilizables para el guion.');
+    }
 
     // Normalize locally, but preserve verified sourceTime values.
     if(plan.scenes.length>120)plan.scenes=plan.scenes.slice(0,120);
