@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0.2 Título + Descarga</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0.3 Scene Count Fix</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -2255,6 +2255,70 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     return Math.min(0.45,Math.max(0.30,0.30+Math.max(0,stretch-1)*0.055));
   }
 
+
+  function normalizeVideoPlanScenes(plan,targetCount){
+    if(!plan || !Array.isArray(plan.scenes))return plan;
+
+    let arr=plan.scenes.filter(Boolean).map((s,i)=>({
+      narration:String(s?.narration||'').trim(),
+      source:String(s?.source||'original').toLowerCase()==='stock'?'stock':'original',
+      queries:Array.isArray(s?.queries)?s.queries.filter(Boolean).map(String).slice(0,5):[]
+    }));
+
+    // Always keep exactly 5 fallback/search queries so the later stock logic is stable.
+    arr=arr.map((s,i)=>{
+      while(s.queries.length<5){
+        const base=s.queries[0]||`documentary subject scene ${i+1}`;
+        s.queries.push(base);
+      }
+      return s;
+    });
+
+    // Too many scenes: trim safely.
+    if(arr.length>targetCount){
+      arr=arr.slice(0,targetCount);
+    }
+
+    // Too few scenes: split the longest narration until we reach the target.
+    while(arr.length<targetCount && arr.length){
+      let idx=0;
+      for(let i=1;i<arr.length;i++){
+        if(arr[i].narration.length>arr[idx].narration.length)idx=i;
+      }
+      const s=arr[idx];
+      const words=s.narration.split(/\s+/).filter(Boolean);
+
+      if(words.length>=8){
+        const mid=Math.max(4,Math.floor(words.length/2));
+        const a={...s,narration:words.slice(0,mid).join(' ')};
+        const b={...s,narration:words.slice(mid).join(' ')};
+        arr.splice(idx,1,a,b);
+      }else{
+        const clone={...s,narration:s.narration};
+        arr.splice(idx+1,0,clone);
+      }
+    }
+
+    // Absolute fallback in the unlikely case the model returned zero usable scenes.
+    if(!arr.length){
+      arr=[{
+        narration:'Observa con atención lo que está ocurriendo.',
+        source:'original',
+        queries:[
+          'documentary subject close up',
+          'documentary subject natural environment',
+          'documentary action detail',
+          'cinematic documentary scene',
+          'vertical documentary footage'
+        ]
+      }];
+      while(arr.length<targetCount)arr.push({...arr[0]});
+    }
+
+    plan.scenes=arr.slice(0,targetCount);
+    return plan;
+  }
+
   async function groqBuildVideoPlan(analysis,fileName,targetSeconds,style,sourceSeconds){
     const key=(V('groq')?.value||'').trim();
     if(!key)throw new Error('Falta Groq API.');
@@ -2273,7 +2337,7 @@ DURACIÓN ORIGINAL: ${sourceSeconds.toFixed(1)} segundos
 DURACIÓN FINAL DESEADA: ${targetSeconds} segundos
 ESTILO: ${style}
 PALABRAS OBJETIVO: aproximadamente ${words}
-ESCENAS EXACTAS: ${scenes}
+ESCENAS OBJETIVO: ${scenes}
 CLIPS COMPLEMENTARIOS: aproximadamente ${stockCount} escenas de ${scenes}
 
 Devuelve SOLO JSON válido:
@@ -2294,7 +2358,7 @@ Devuelve SOLO JSON válido:
 }
 
 REGLAS:
-- EXACTAMENTE ${scenes} escenas.
+- Genera alrededor de ${scenes} escenas. El sistema ajustará automáticamente cualquier diferencia de una o varias escenas.
 - La suma de "narration" de todas las escenas ES el guion completo y debe acercarse a ${words} palabras.
 - Español natural, frases claras para voz TTS y buena retención.
 - No digas "en este video".
@@ -2333,8 +2397,8 @@ REGLAS:
                 title:{type:'string'},
                 scenes:{
                   type:'array',
-                  minItems:scenes,
-                  maxItems:scenes,
+                  minItems:1,
+                  maxItems:40,
                   items:{
                     type:'object',
                     additionalProperties:false,
@@ -2372,6 +2436,14 @@ REGLAS:
     let plan;
     try{plan=JSON.parse(txt);}catch(e){throw new Error('Groq no devolvió un plan JSON válido.');}
     if(!Array.isArray(plan.scenes) || !plan.scenes.length)throw new Error('La IA no devolvió escenas.');
+
+    // Groq can occasionally return one scene more/less than requested even with a strict prompt.
+    // We accept up to 40 in the schema and normalize locally to the exact requested count.
+    plan=normalizeVideoPlanScenes(plan,scenes);
+
+    if(plan.scenes.length!==scenes){
+      throw new Error(`No pude normalizar las escenas: esperadas ${scenes}, obtenidas ${plan.scenes.length}.`);
+    }
     return plan;
   }
 
