@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.8 Free Vision Contact Sheet</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.9 Duration Word Limit</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre TODO el video localmente, elige 6 momentos importantes y los combina en UNA sola imagen resumen para Groq Vision. Usa una sola petición y elimina la llamada extra de resumen. Si se acaba el límite gratuito de Groq Vision, continúa automáticamente sin esperar. La duración elegida se usa como objetivo aproximado para calcular el tamaño del guion. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre TODO el video localmente, elige 6 momentos importantes y los combina en UNA sola imagen resumen para Groq Vision. Usa una sola petición y elimina la llamada extra de resumen. Si se acaba el límite gratuito de Groq Vision, continúa automáticamente sin esperar. La duración elegida calcula el tamaño del guion según la velocidad natural medida de Alexander V: aproximadamente 180 palabras por minuto. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -2668,7 +2668,7 @@ REGLAS:
     };
   }
   function targetSceneCount(seconds){return Math.max(12,Math.min(36,Math.round(seconds/5)));}
-  function targetWords(seconds){return Math.round(seconds*2.42);}
+  function targetWords(seconds){return Math.round(seconds*3.0);}
   function stockRatioFor(targetSeconds,sourceSeconds){
     // The original uploaded video is the primary visual source.
     // Stock is only a small complement so narration stays visually synchronized.
@@ -2814,7 +2814,7 @@ REGLAS CRÍTICAS:
           messages:[
             {
               role:'system',
-              content:'Escribe únicamente en español neutro para título y narración. Devuelve solo el formato TITLE/SCENE indicado por el usuario. No uses JSON ni markdown. Las QUERY deben estar en inglés.'
+              content:'Escribe únicamente en español neutro para título y narración. Devuelve solo el formato TITLE/SCENE indicado por el usuario. No uses JSON ni markdown. Las QUERY deben estar en inglés. Respeta estrictamente el objetivo total de palabras indicado: no lo excedas en más de 4%. No agregues escenas de relleno ni hechos no verificados.'
             },
             {role:'user',content:prompt}
           ],
@@ -3125,6 +3125,37 @@ REGLAS CRÍTICAS:
     }
   }
 
+
+  function capPlanNarrationWords(plan,targetSeconds){
+    const target=Math.max(1,Math.round(Number(targetSeconds)||60));
+    const ideal=targetWords(target);
+    // Natural Alexander target: ~180 wpm. Allow only a small +4% ceiling.
+    const maxWords=Math.max(90,Math.round(ideal*1.04));
+    const scenes=Array.isArray(plan?.scenes)?plan.scenes:[];
+    let remaining=maxWords;
+    const kept=[];
+
+    for(const scene of scenes){
+      if(remaining<=0)break;
+      const words=String(scene.narration||'').trim().split(/\s+/).filter(Boolean);
+      if(!words.length)continue;
+
+      if(words.length<=remaining){
+        kept.push({...scene,narration:words.join(' ')});
+        remaining-=words.length;
+      }else{
+        let cut=words.slice(0,remaining).join(' ');
+        // Prefer ending at a sentence boundary near the hard limit.
+        const sentenceEnd=Math.max(cut.lastIndexOf('.'),cut.lastIndexOf('!'),cut.lastIndexOf('?'));
+        if(sentenceEnd>cut.length*0.72)cut=cut.slice(0,sentenceEnd+1);
+        if(cut.trim())kept.push({...scene,narration:cut.trim()});
+        remaining=0;
+      }
+    }
+
+    return {...plan,scenes:kept};
+  }
+
   async function processOneVideo(file,index,total){
     currentVideoFile=file;
     currentVideoIndex=index;
@@ -3169,7 +3200,8 @@ REGLAS CRÍTICAS:
       window.documentalForcedDurationSeconds=targetSeconds;
       vStatus(`Creando guion de aproximadamente ${targetSeconds} segundos…`);
 
-      const plan=await groqBuildVideoPlan(analysis,file.name,targetSeconds,style,meta.duration);
+      let plan=await groqBuildVideoPlan(analysis,file.name,targetSeconds,style,meta.duration);
+      plan=capPlanNarrationWords(plan,targetSeconds);
       currentVideoPlan=plan;
       const title=String(plan.title||file.name.replace(/\.[^.]+$/,'')).trim();
       const script=(plan.scenes||[]).map(x=>String(x.narration||'').trim()).filter(Boolean).join(' ').trim();
