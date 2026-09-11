@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0.3 Scene Count Fix</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0.4 No Scene Limit</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -2358,7 +2358,7 @@ Devuelve SOLO JSON válido:
 }
 
 REGLAS:
-- Genera alrededor de ${scenes} escenas. El sistema ajustará automáticamente cualquier diferencia de una o varias escenas.
+- Genera aproximadamente ${scenes} escenas. Si produces más o menos, está bien: el sistema las ajustará automáticamente después.
 - La suma de "narration" de todas las escenas ES el guion completo y debe acercarse a ${words} palabras.
 - Español natural, frases claras para voz TTS y buena retención.
 - No digas "en este video".
@@ -2397,8 +2397,6 @@ REGLAS:
                 title:{type:'string'},
                 scenes:{
                   type:'array',
-                  minItems:1,
-                  maxItems:40,
                   items:{
                     type:'object',
                     additionalProperties:false,
@@ -2429,6 +2427,9 @@ REGLAS:
         const ej=JSON.parse(raw);
         detail=ej?.error?.message||detail;
       }catch(_){}
+      if(String(detail).includes('/scenes') && String(detail).includes('maxItems')){
+        throw new Error(`Groq guion ${r.status}: límite de escenas rechazado por la API. Actualiza a v7.0.4.`);
+      }
       throw new Error(`Groq guion ${r.status}: ${detail}`);
     }
     const data=JSON.parse(raw);
@@ -2439,6 +2440,9 @@ REGLAS:
 
     // Groq can occasionally return one scene more/less than requested even with a strict prompt.
     // We accept up to 40 in the schema and normalize locally to the exact requested count.
+    if(plan.scenes.length>120){
+      plan.scenes=plan.scenes.slice(0,120);
+    }
     plan=normalizeVideoPlanScenes(plan,scenes);
 
     if(plan.scenes.length!==scenes){
