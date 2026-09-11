@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3 Smart Full-Video Analysis</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.1 Rate-Limit Safe</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona aproximadamente 18–45 fotogramas representativos con segundos reales y los analiza en bloques de 3. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona aproximadamente 10–18 fotogramas representativos con segundos reales y los analiza en bloques de 3. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -180,7 +180,7 @@
       <button class="pri" id="videoAIRetry" type="button" disabled>↻ REINTENTAR VIDEO ACTUAL</button>
     </div>
 
-    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Los fotogramas elegidos se procesan en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
+    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Los fotogramas elegidos se comprimen y procesan en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Si Groq aplica un límite temporal 429, la app espera automáticamente el tiempo indicado y reintenta. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
   </section>
 </div>
 
@@ -2333,7 +2333,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
     // Choose a bounded number of representative frames.
     // We keep chronological coverage AND prioritize strong visual changes.
-    const target=Math.max(18,Math.min(45,Math.round(duration/3)+10));
+    const target=Math.max(10,Math.min(18,Math.round(duration/6)+8));
     const selected=new Set([0,samples.length-1]);
 
     // Uniform anchors guarantee that no long section of the video is ignored.
@@ -2368,7 +2368,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       vStatus(`Preparando fotograma inteligente ${j+1}/${indices.length} · ${s.time.toFixed(1)} s…`);
       await seekVideo(video,s.time);
 
-      const maxW=420;
+      const maxW=240;
       const aspect=(video.videoHeight||1280)/(video.videoWidth||720);
       const w=Math.min(maxW,video.videoWidth||maxW);
       const h=Math.max(180,Math.round(w*aspect));
@@ -2378,7 +2378,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
       frames.push({
         time:s.time,
-        image:canvas.toDataURL('image/jpeg',0.62),
+        image:canvas.toDataURL('image/jpeg',0.50),
         change:s.change
       });
     }
@@ -2386,6 +2386,39 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     vStatus(`✅ Video completo escaneado: ${scanCount} puntos · ${frames.length} fotogramas seleccionados.`);
     return frames;
   }
+  function sleepMs(ms){return new Promise(r=>setTimeout(r,ms));}
+
+  function retrySecondsFromGroq(text){
+    const s=String(text||'');
+    let m=s.match(/try again in\s+([0-9.]+)s/i);
+    if(m)return Math.max(2,Math.ceil(Number(m[1])));
+    m=s.match(/retry[-_ ]?after[^0-9]*([0-9.]+)/i);
+    if(m)return Math.max(2,Math.ceil(Number(m[1])));
+    return 60;
+  }
+
+  async function groqFetchWith429Retry(url,options,label,maxRetries=4){
+    let lastText='';
+    for(let attempt=0;attempt<=maxRetries;attempt++){
+      const r=await fetch(url,options);
+      const raw=await r.text();
+      if(r.status!==429){
+        return {response:r,raw};
+      }
+
+      lastText=raw;
+      if(attempt>=maxRetries)break;
+
+      const wait=retrySecondsFromGroq(raw)+2;
+      for(let left=wait;left>0;left--){
+        vStatus(`⏳ Límite temporal de Groq en ${label}. Reintentando en ${left}s…`);
+        await sleepMs(1000);
+      }
+    }
+
+    throw new Error(`${label} 429: ${lastText.slice(0,500)}`);
+  }
+
   async function groqVisionAnalyze(frames,fileName,meta){
     const key=(V('groq')?.value||'').trim();
     if(!key)throw new Error('Falta Groq API. Guárdala primero en la pestaña TXT.');
@@ -2437,19 +2470,25 @@ REGLAS:
         });
       });
 
-      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-        body:JSON.stringify({
-          model:'qwen/qwen3.6-27b',
-          messages:[{role:'user',content}],
-          temperature:0.1,
-          max_tokens:900,
-          response_format:{type:'json_object'}
-        })
-      });
+      const req=await groqFetchWith429Retry(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+          body:JSON.stringify({
+            model:'qwen/qwen3.6-27b',
+            messages:[{role:'user',content}],
+            temperature:0.1,
+            max_tokens:650,
+            response_format:{type:'json_object'}
+          })
+        },
+        `Groq Vision bloque ${b+1}/${batches.length}`,
+        4
+      );
 
-      const raw=await r.text();
+      const r=req.response;
+      const raw=req.raw;
       if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,500)}`);
 
       const data=JSON.parse(raw);
@@ -2459,6 +2498,12 @@ REGLAS:
       catch(e){throw new Error(`Groq Vision bloque ${b+1} respondió JSON inválido.`);}
 
       partials.push(parsed);
+
+      // Small pause between vision calls to reduce burst pressure on the free-tier TPM limit.
+      if(b<batches.length-1){
+        vStatus(`Pausa breve para respetar límites de Groq…`);
+        await sleepMs(3500);
+      }
     }
 
     // Merge the three visual passes.
@@ -2499,22 +2544,28 @@ Devuelve SOLO JSON válido:
 
 No inventes nada que no aparezca en la timeline.`;
 
-    const sr=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body:JSON.stringify({
-        model:'openai/gpt-oss-20b',
-        messages:[
-          {role:'system',content:'Devuelve únicamente JSON válido.'},
-          {role:'user',content:summaryPrompt}
-        ],
-        temperature:0.1,
-        max_tokens:700,
-        response_format:{type:'json_object'}
-      })
-    });
+    const sreq=await groqFetchWith429Retry(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({
+          model:'openai/gpt-oss-20b',
+          messages:[
+            {role:'system',content:'Devuelve únicamente JSON válido.'},
+            {role:'user',content:summaryPrompt}
+          ],
+          temperature:0.1,
+          max_tokens:700,
+          response_format:{type:'json_object'}
+        })
+      },
+      'Groq resumen',
+      4
+    );
 
-    const sraw=await sr.text();
+    const sr=sreq.response;
+    const sraw=sreq.raw;
     if(!sr.ok)throw new Error(`Groq resumen ${sr.status}: ${sraw.slice(0,500)}`);
 
     const sdata=JSON.parse(sraw);
