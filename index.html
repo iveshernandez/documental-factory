@@ -1,8 +1,27 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documental Factory</title>
 <style>
 :root{--b:#08111f;--p:#0f1b2d;--p2:#0a1424;--l:#263853;--t:#f8fafc;--m:#91a4bd;--g:#37d67a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font-family:Arial,sans-serif}.w{max-width:1200px;margin:auto;padding:25px}h1{font-size:42px;margin:0}.mut{color:var(--m)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:18px;margin-top:18px}label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}textarea,input,select{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px}textarea{min-height:230px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}button{border:0;border-radius:10px;padding:11px 14px;font-weight:bold;cursor:pointer}.pri{background:var(--g);color:#06150c}.sec{background:#233552;color:white}.danger{background:#4b2027;color:#ffd0d0}.scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}.scene{background:var(--p2);border:1px solid var(--l);border-radius:15px;overflow:hidden}.media{aspect-ratio:9/16;max-height:390px;background:#03070d;display:grid;place-items:center}.media video{width:100%;height:100%;object-fit:cover}.body{padding:12px}.body p{font-size:12px;color:var(--m)}.q{font-family:monospace}.status{margin-top:12px;font-size:13px}.ok{color:#7ef0a9}.err{color:#ff9696}.api{display:grid;grid-template-columns:1fr auto;gap:7px}.tiny{font-size:11px;color:var(--m)}.renderbox{margin-top:18px;padding:18px;border:1px solid var(--l);border-radius:16px;background:var(--p2)}.progress{height:12px;background:#050b14;border:1px solid var(--l);border-radius:999px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0%;background:var(--g);transition:width .25s}.finalvideo{width:100%;max-height:620px;background:#000;border-radius:14px;margin-top:12px;display:none}.hiddenAuto{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.scenes{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.scenes{grid-template-columns:1fr}}
-.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}</style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Estilo Referencia v6.14.1 Alexander Cache Fix</div><div class="w"><h1>Documental Factory</h1><div class="mut">Sube un .TXT y el sistema hace voz, escenas, música, render y descarga automáticamente.</div>
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.pipe{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--l);border-radius:12px;background:#08101d;opacity:.62}.pipe span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#152237;font-weight:800}.pipe b,.pipe small{display:block}.pipe small{font-size:10px;color:var(--m);margin-top:2px}.pipe.active{opacity:1;border-color:#5d87ff}.pipe.active span{background:#2857d7}.pipe.done{opacity:1;border-color:#2b9b66}.pipe.done span{background:#157347}.pipe.err{opacity:1;border-color:#b94b4b}.pipe.err span{background:#8e2d2d}.liveLog{max-height:145px;overflow:auto;font-size:11px;line-height:1.5;background:#050a12;border:1px solid var(--l);border-radius:10px;padding:10px;margin-top:10px;color:#b9c5d6}.liveLog:empty{display:none}@media(max-width:800px){.pipeline{grid-template-columns:1fr 1fr}.pipe:last-child{grid-column:1/-1}}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 4px}
+.tabBtn{background:#13243a;color:#cbd7e7;border:1px solid var(--l);padding:12px 18px}
+.tabBtn.active{background:var(--g);color:#06150c;border-color:var(--g)}
+.tabPanel{display:none}.tabPanel.active{display:block}
+.inputLike{width:100%;background:var(--p2);color:white;border:1px solid var(--l);border-radius:11px;padding:12px;min-height:42px}
+.videoQueue{display:grid;gap:8px;margin-top:12px}
+.videoQueueItem{display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;background:#08101d;border:1px solid var(--l);border-radius:12px;padding:10px}
+.videoQueueItem .num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#152237;font-weight:800}
+.videoQueueItem.ok{border-color:#2b9b66}.videoQueueItem.err{border-color:#b94b4b}.videoQueueItem.active{border-color:#5d87ff}
+.videoQueueItem small{color:var(--m);display:block;margin-top:3px}
+.videoAnalysis{white-space:pre-wrap;line-height:1.45;max-height:230px;overflow:auto}
+.videoScript{min-height:300px}
+@media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
+</style></head><body>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0 Video → Guion IA</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div class="tabs">
+  <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
+  <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
+</div>
+<div id="tabTxt" class="tabPanel active">
 <div class="grid">
 <section class="card">
   <h2>1. Subir guion .TXT</h2>
@@ -98,6 +117,62 @@
 <p class="tiny">Estilo referencia: subtítulos grandes blancos con palabras clave amarillas, cortes visuales más frecuentes, una sola música fija y mezcla final reforzada. No necesita ningún archivo MP3/M4A externo.</p>
 </div>
 </section></div>
+</div>
+
+<div id="tabVideo" class="tabPanel">
+  <section class="card">
+    <h2>Video → Guion IA</h2>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La IA analiza fotogramas del video, escribe un guion nuevo y la edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
+
+    <label>Videos originales</label>
+    <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
+    <div class="tiny" style="margin-top:7px">Máximo 6 videos por tanda. Alexander V se reutiliza durante toda la cola.</div>
+
+    <div class="row">
+      <div>
+        <label>Duración final</label>
+        <select id="videoTargetDuration">
+          <option value="60" selected>1 minuto</option>
+          <option value="90">1 minuto 30 segundos</option>
+          <option value="120">2 minutos</option>
+          <option value="180">3 minutos</option>
+        </select>
+      </div>
+      <div>
+        <label>Estilo del guion</label>
+        <select id="videoScriptStyle">
+          <option value="documental viral" selected>Documental viral</option>
+          <option value="explicativo">Explicativo</option>
+          <option value="curiosidad y misterio">Curiosidad / misterio</option>
+          <option value="historia narrativa">Historia narrativa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="renderbox">
+      <b>Transformación visual automática — siempre activa</b>
+      <div class="tiny" style="margin-top:6px">Cada escena usa una combinación distinta de segmento, zoom, posición del encuadre y velocidad. Aproximadamente 30–45% del resultado usa clips complementarios según cuánto haya que alargar el video.</div>
+    </div>
+
+    <div id="videoAIStatus" class="status mut">Selecciona hasta 6 videos. La cola comenzará automáticamente.</div>
+    <div class="progress"><div id="videoAIBar"></div></div>
+    <div id="videoAIQueue" class="videoQueue"></div>
+
+    <label>Análisis visual del video actual</label>
+    <div id="videoAIAnalysis" class="inputLike videoAnalysis">En espera.</div>
+
+    <label>Guion generado del video actual</label>
+    <textarea id="videoAIScript" class="videoScript" readonly placeholder="Aquí aparecerá el guion creado por IA."></textarea>
+
+    <div class="actions">
+      <button class="pri" id="videoAIRetry" type="button" disabled>↻ REINTENTAR VIDEO ACTUAL</button>
+    </div>
+
+    <p class="tiny">El análisis visual usa el mismo Groq API guardado en la pestaña TXT. Para visión se usa Qwen 3.6 y para estructurar el guion se usa GPT-OSS 20B. El resultado depende de lo que sea visible en los fotogramas seleccionados.</p>
+  </section>
+</div>
+
+</div>
 
 <script type="module">
 const q=s=>document.querySelector(s);
@@ -1077,7 +1152,15 @@ async function createFinalVideo(){
         }
       }
 
-      const filters=['[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30,format=yuv420p[v0]'];
+      const startOffset=Math.max(0,Number(el.dataset.start||0));
+      const sceneSpeed=Math.min(1.10,Math.max(0.92,Number(el.dataset.speed||1)));
+      const sceneZoom=Math.min(1.18,Math.max(1.0,Number(el.dataset.zoom||1)));
+      const panX=Math.min(1,Math.max(0,Number(el.dataset.panX||0.5)));
+      const panY=Math.min(1,Math.max(0,Number(el.dataset.panY||0.5)));
+      const targetW=Math.round(720*sceneZoom);
+      const targetH=Math.round(1280*sceneZoom);
+      const baseVideoFilter=`setpts=PTS/${sceneSpeed.toFixed(3)},scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)*${panX.toFixed(3)}:(ih-1280)*${panY.toFixed(3)},fps=30,format=yuv420p`;
+      const filters=[`[0:v]${baseVideoFilter}[v0]`];
       let prev='v0';
       overlaySpecs.forEach((o,k)=>{
         const next='v'+(k+1);
@@ -1085,11 +1168,13 @@ async function createFinalVideo(){
         prev=next;
       });
 
-      const args=['-stream_loop','-1','-i',input,...overlayInputs,'-t',dur];
+      const args=['-stream_loop','-1'];
+      if(startOffset>0)args.push('-ss',startOffset.toFixed(3));
+      args.push('-i',input,...overlayInputs,'-t',dur);
       if(overlaySpecs.length){
         args.push('-filter_complex',filters.join(';'),'-map',`[${prev}]`);
       }else{
-        args.push('-vf','scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30,format=yuv420p');
+        args.push('-vf',baseVideoFilter);
       }
       args.push('-an','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart',output);
 
@@ -1530,6 +1615,9 @@ async function clipForScene(scene,attempt=0){
   return null;
 }
 
+window.documentalClipForScene=clipForScene;
+window.documentalResetClipSearch=()=>{clipSearchCache=new Map();usedClipKeys=new Set();};
+
 function render(s,c,i){
   const queries=normalizeSceneQueries(s);
   let a=document.createElement('article');
@@ -1791,6 +1879,9 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     if(keepAwakeRequested)requestWakeLock();
   });
 
+  window.documentalRequestWakeLock=requestWakeLock;
+  window.documentalReleaseWakeLock=releaseWakeLock;
+
   async function parseTxt(file,{autoStart=false}={}){
     const text=await file.text();
     const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
@@ -2008,11 +2099,472 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 </script>
 
 
+
+<script>
+(()=>{
+  const V=id=>document.getElementById(id);
+  const sleepVideo=ms=>new Promise(r=>setTimeout(r,ms));
+  let videoAIRunning=false;
+  let currentVideoFile=null;
+  let currentVideoIndex=-1;
+  let currentVideoFiles=[];
+  let currentVideoObjectUrl=null;
+  let currentVideoPlan=null;
+
+  function vStatus(text,cls='mut'){
+    const el=V('videoAIStatus');
+    if(el){el.textContent=text;el.className='status '+cls;}
+    const log=V('liveLog');
+    if(log){
+      const t=new Date().toLocaleTimeString();
+      log.innerHTML+=`<div>${t} — 🎞️ ${String(text).replace(/</g,'&lt;')}</div>`;
+      log.scrollTop=log.scrollHeight;
+    }
+  }
+  function vBar(p){const el=V('videoAIBar');if(el)el.style.width=Math.max(0,Math.min(100,p))+'%';}
+
+  function queueRow(i,file,status='En espera',cls=''){
+    const root=V('videoAIQueue');
+    let row=root?.querySelector(`[data-index="${i}"]`);
+    if(!row && root){
+      row=document.createElement('div');
+      row.className='videoQueueItem';
+      row.dataset.index=String(i);
+      row.innerHTML=`<div class="num">${i+1}</div><div><b></b><small></small></div><span></span>`;
+      row.querySelector('b').textContent=file.name;
+      root.appendChild(row);
+    }
+    if(row){
+      row.className='videoQueueItem '+cls;
+      row.querySelector('small').textContent=status;
+      row.querySelector('span:last-child').textContent=cls==='ok'?'✅':cls==='err'?'❌':cls==='active'?'⚙️':'⏳';
+    }
+  }
+
+  function switchTab(which){
+    const txt=V('tabTxt'), vid=V('tabVideo');
+    const b1=V('tabBtnTxt'), b2=V('tabBtnVideo');
+    const isVideo=which==='video';
+    txt?.classList.toggle('active',!isVideo);
+    vid?.classList.toggle('active',isVideo);
+    b1?.classList.toggle('active',!isVideo);
+    b2?.classList.toggle('active',isVideo);
+  }
+  V('tabBtnTxt')?.addEventListener('click',()=>switchTab('txt'));
+  V('tabBtnVideo')?.addEventListener('click',()=>switchTab('video'));
+
+  async function loadVideoMeta(file){
+    const url=URL.createObjectURL(file);
+    const video=document.createElement('video');
+    video.preload='metadata';
+    video.muted=true;
+    video.playsInline=true;
+    video.src=url;
+    await new Promise((resolve,reject)=>{
+      video.onloadedmetadata=resolve;
+      video.onerror=()=>reject(new Error('No pude leer el video '+file.name));
+    });
+    const meta={
+      url,video,
+      duration:Number(video.duration)||0,
+      width:Number(video.videoWidth)||0,
+      height:Number(video.videoHeight)||0
+    };
+    if(!meta.duration)throw new Error('No pude detectar la duración del video.');
+    return meta;
+  }
+
+  async function seekVideo(video,time){
+    const safe=Math.max(0,Math.min((video.duration||time)-0.05,time));
+    if(Math.abs((video.currentTime||0)-safe)<0.04)return;
+    await new Promise((resolve,reject)=>{
+      const done=()=>{cleanup();resolve();};
+      const fail=()=>{cleanup();reject(new Error('No pude extraer un fotograma del video.'));};
+      const cleanup=()=>{video.removeEventListener('seeked',done);video.removeEventListener('error',fail);};
+      video.addEventListener('seeked',done,{once:true});
+      video.addEventListener('error',fail,{once:true});
+      video.currentTime=safe;
+    });
+  }
+
+  async function extractVisionFrames(meta){
+    const video=meta.video;
+    const positions=[0.16,0.50,0.84];
+    const frames=[];
+    for(let i=0;i<positions.length;i++){
+      vStatus(`Analizando imagen ${i+1} de ${positions.length}…`);
+      await seekVideo(video,Math.max(0.1,meta.duration*positions[i]));
+      const maxW=480;
+      const ratio=(video.videoHeight||1280)/(video.videoWidth||720);
+      const w=Math.min(maxW,video.videoWidth||maxW);
+      const h=Math.max(180,Math.round(w*ratio));
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(video,0,0,w,h);
+      frames.push(canvas.toDataURL('image/jpeg',0.68));
+    }
+    return frames;
+  }
+
+  async function groqVisionAnalyze(frames,fileName,meta){
+    const key=(V('groq')?.value||'').trim();
+    if(!key)throw new Error('Falta Groq API. Guárdala primero en la pestaña TXT.');
+
+    const content=[{
+      type:'text',
+      text:`Analiza estos 3 fotogramas extraídos del mismo video. Nombre del archivo: "${fileName}". Duración original: ${meta.duration.toFixed(1)} s. Describe SOLO lo que se puede sostener visualmente. Identifica sujeto principal, entorno, acciones visibles, proceso o transformación, objetos importantes, cambios entre fotogramas y qué tipo de historia puede narrarse sin inventar datos específicos. Devuelve JSON válido con: {"subject":"...","environment":"...","visible_actions":["..."],"visual_story":"...","safe_context":"..."}. Responde en español.`
+    }];
+    frames.forEach(img=>content.push({type:'image_url',image_url:{url:img}}));
+
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({
+        model:'qwen/qwen3.6-27b',
+        messages:[{role:'user',content}],
+        temperature:0.2,
+        max_tokens:900,
+        response_format:{type:'json_object'}
+      })
+    });
+    const raw=await r.text();
+    if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,300)}`);
+    const data=JSON.parse(raw);
+    const txt=data?.choices?.[0]?.message?.content||'';
+    try{return JSON.parse(txt);}
+    catch(e){throw new Error('Groq Vision respondió, pero el análisis no llegó como JSON válido.');}
+  }
+
+  function targetSceneCount(seconds){return Math.max(12,Math.min(36,Math.round(seconds/5)));}
+  function targetWords(seconds){return Math.round(seconds*2.48);}
+  function stockRatioFor(targetSeconds,sourceSeconds){
+    const stretch=targetSeconds/Math.max(1,sourceSeconds);
+    return Math.min(0.45,Math.max(0.30,0.30+Math.max(0,stretch-1)*0.055));
+  }
+
+  async function groqBuildVideoPlan(analysis,fileName,targetSeconds,style,sourceSeconds){
+    const key=(V('groq')?.value||'').trim();
+    if(!key)throw new Error('Falta Groq API.');
+    const scenes=targetSceneCount(targetSeconds);
+    const words=targetWords(targetSeconds);
+    const stockRatio=stockRatioFor(targetSeconds,sourceSeconds);
+    const stockCount=Math.max(1,Math.round(scenes*stockRatio));
+
+    const prompt=`Eres guionista y editor profesional de videos verticales. Debes crear una narración NUEVA basada en un video que ya fue analizado visualmente.
+
+ANÁLISIS VISUAL:
+${JSON.stringify(analysis)}
+
+ARCHIVO: ${fileName}
+DURACIÓN ORIGINAL: ${sourceSeconds.toFixed(1)} segundos
+DURACIÓN FINAL DESEADA: ${targetSeconds} segundos
+ESTILO: ${style}
+PALABRAS OBJETIVO: aproximadamente ${words}
+ESCENAS EXACTAS: ${scenes}
+CLIPS COMPLEMENTARIOS: aproximadamente ${stockCount} escenas de ${scenes}
+
+Devuelve SOLO JSON válido:
+{
+  "title":"título corto y atractivo",
+  "scenes":[
+    {
+      "narration":"fragmento del guion",
+      "source":"original",
+      "queries":[]
+    },
+    {
+      "narration":"fragmento del guion",
+      "source":"stock",
+      "queries":["english search 1","english search 2","english search 3","english search 4","english search 5"]
+    }
+  ]
+}
+
+REGLAS:
+- EXACTAMENTE ${scenes} escenas.
+- La suma de "narration" de todas las escenas ES el guion completo y debe acercarse a ${words} palabras.
+- Español natural, frases claras para voz TTS y buena retención.
+- No digas "en este video".
+- No inventes nombres, cifras, lugares, especies o hechos que el análisis visual no sostenga.
+- Si no se puede saber un dato concreto, narra lo visible, el proceso, la transformación, el esfuerzo, la curiosidad o el contexto de forma general.
+- "original" significa usar el video subido, pero con edición transformada.
+- Usa "stock" en alrededor de ${stockCount} escenas. Debe haber stock desde el primer tercio hasta el final, no todo agrupado.
+- Nunca pongas más de 2 escenas stock consecutivas.
+- Las escenas originales consecutivas deben narrar acciones o momentos distintos.
+- Para cada escena stock genera EXACTAMENTE 5 búsquedas EN INGLÉS, concretas y visuales.
+- Las búsquedas stock deben mantener el sujeto/contexto correcto y evitar conceptos abstractos.
+- Cada fragmento de narración debe ser suficientemente corto para aproximadamente 4–6 segundos.`;
+
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({
+        model:'openai/gpt-oss-20b',
+        messages:[
+          {role:'system',content:'Devuelve únicamente JSON válido. No uses markdown.'},
+          {role:'user',content:prompt}
+        ],
+        temperature:0.45,
+        max_tokens:6500,
+        response_format:{type:'json_object'}
+      })
+    });
+    const raw=await r.text();
+    if(!r.ok)throw new Error(`Groq guion ${r.status}: ${raw.slice(0,300)}`);
+    const data=JSON.parse(raw);
+    const txt=data?.choices?.[0]?.message?.content||'';
+    let plan;
+    try{plan=JSON.parse(txt);}catch(e){throw new Error('Groq no devolvió un plan JSON válido.');}
+    if(!Array.isArray(plan.scenes) || !plan.scenes.length)throw new Error('La IA no devolvió escenas.');
+    return plan;
+  }
+
+  function transformForScene(i){
+    const zooms=[1.04,1.10,1.07,1.14,1.02,1.12,1.06,1.16];
+    const speeds=[0.96,1.04,1.00,1.07,0.94,1.02,1.08,0.98];
+    const pans=[
+      [0.50,0.50],[0.18,0.45],[0.82,0.48],[0.35,0.25],
+      [0.65,0.72],[0.25,0.70],[0.75,0.28],[0.50,0.62]
+    ];
+    const p=pans[i%pans.length];
+    return {zoom:zooms[i%zooms.length],speed:speeds[i%speeds.length],panX:p[0],panY:p[1]};
+  }
+
+  function originalStartForScene(originalIndex,totalOriginalScenes,duration){
+    const usable=Math.max(0,duration-6.2);
+    if(usable<=0)return 0;
+    // Golden-ratio distribution avoids repeatedly starting at the same point.
+    const phase=(originalIndex*0.61803398875 + (originalIndex%3)*0.071)%1;
+    let start=phase*usable;
+    // For the first few original scenes, force broad temporal coverage.
+    if(totalOriginalScenes>1 && originalIndex<Math.min(totalOriginalScenes,5)){
+      start=(originalIndex/Math.max(1,Math.min(totalOriginalScenes,5)-1))*usable;
+    }
+    return Math.max(0,start);
+  }
+
+  async function buildSceneCardsFromVideoPlan(plan,meta){
+    const root=V('scenes');
+    root.innerHTML='';
+    window.documentalResetClipSearch?.();
+
+    const planScenes=plan.scenes||[];
+    const originalScenes=planScenes.filter(s=>(s.source||'original')!=='stock');
+    let originalIndex=0;
+
+    for(let i=0;i<planScenes.length;i++){
+      const s=planScenes[i]||{};
+      const narration=String(s.narration||'').trim();
+      const isStock=String(s.source||'original').toLowerCase()==='stock';
+      const art=document.createElement('article');
+      art.className='scene';
+      art.dataset.narration=narration;
+      art.dataset.searchAttempt='0';
+
+      let clip=null;
+      let provider='';
+      let search='';
+
+      if(isStock){
+        const qs=Array.isArray(s.queries)?s.queries.filter(Boolean).slice(0,5):[];
+        const sceneData={narration,query:qs[0]||'',queries:qs};
+        clip=await window.documentalClipForScene?.(sceneData,0);
+        if(clip){
+          art.dataset.clipUrl=clip.url;
+          art.dataset.clipKey=clip.clipKey||'';
+          provider=clip.provider||'Stock';
+          search=clip.search||qs[0]||'';
+        }else{
+          // Never leave a scene empty: fall back to transformed original.
+          art.dataset.clipUrl=meta.url;
+          provider='Video original transformado (fallback)';
+          const t=transformForScene(i);
+          Object.assign(art.dataset,{zoom:t.zoom,speed:t.speed,panX:t.panX,panY:t.panY});
+          art.dataset.start=originalStartForScene(originalIndex++,originalScenes.length,meta.duration);
+        }
+      }else{
+        art.dataset.clipUrl=meta.url;
+        provider='Video original transformado';
+        const t=transformForScene(i);
+        Object.assign(art.dataset,{zoom:t.zoom,speed:t.speed,panX:t.panX,panY:t.panY});
+        art.dataset.start=originalStartForScene(originalIndex++,originalScenes.length,meta.duration);
+      }
+
+      if(!art.dataset.zoom){
+        const t=transformForScene(i);
+        Object.assign(art.dataset,{zoom:t.zoom,speed:t.speed,panX:t.panX,panY:t.panY});
+      }
+
+      art.innerHTML=`<div class="media">${art.dataset.clipUrl?`<video muted loop controls playsinline src="${art.dataset.clipUrl}"></video>`:'<span class="err">Sin clip</span>'}</div>
+        <div class="body">
+          <b>ESCENA ${i+1}</b>
+          <p class="narr"></p>
+          <p class="q"></p>
+          <p class="provider"></p>
+        </div>`;
+      art.querySelector('.narr').textContent=narration;
+      art.querySelector('.q').textContent=isStock ? ('🔎 '+(search||'clip complementario')) : `✂️ Recorte ${Number(art.dataset.start||0).toFixed(1)} s · zoom ${Number(art.dataset.zoom||1).toFixed(2)}x · velocidad ${Number(art.dataset.speed||1).toFixed(2)}x`;
+      art.querySelector('.provider').textContent='Fuente: '+provider;
+      root.appendChild(art);
+
+      vStatus(`Preparando escenas: ${i+1} de ${planScenes.length}…`);
+      vBar(30+Math.round((i/Math.max(1,planScenes.length))*25));
+    }
+  }
+
+  async function processOneVideo(file,index,total){
+    currentVideoFile=file;
+    currentVideoIndex=index;
+    queueRow(index,file,`Analizando video ${index+1} de ${total}`,'active');
+    vStatus(`Video ${index+1}/${total}: leyendo ${file.name}…`);
+    vBar(3);
+
+    if(currentVideoObjectUrl){
+      try{URL.revokeObjectURL(currentVideoObjectUrl);}catch(e){}
+      currentVideoObjectUrl=null;
+    }
+
+    const meta=await loadVideoMeta(file);
+    currentVideoObjectUrl=meta.url;
+
+    try{
+      vBar(8);
+      const frames=await extractVisionFrames(meta);
+      vBar(16);
+      vStatus('Groq Vision está entendiendo el contenido…');
+      const analysis=await groqVisionAnalyze(frames,file.name,meta);
+      V('videoAIAnalysis').textContent=[
+        `Sujeto: ${analysis.subject||'No determinado'}`,
+        `Entorno: ${analysis.environment||'No determinado'}`,
+        `Acciones: ${(analysis.visible_actions||[]).join(', ')}`,
+        '',
+        analysis.visual_story||analysis.safe_context||''
+      ].join('\n');
+      vBar(24);
+
+      const targetSeconds=Number(V('videoTargetDuration')?.value||60);
+      const style=V('videoScriptStyle')?.value||'documental viral';
+      vStatus(`Creando guion de aproximadamente ${targetSeconds} segundos…`);
+
+      const plan=await groqBuildVideoPlan(analysis,file.name,targetSeconds,style,meta.duration);
+      currentVideoPlan=plan;
+      const title=String(plan.title||file.name.replace(/\.[^.]+$/,'')).trim();
+      const script=(plan.scenes||[]).map(x=>String(x.narration||'').trim()).filter(Boolean).join(' ').trim();
+      if(!script)throw new Error('El plan de IA llegó sin narración.');
+
+      // Reuse the proven TXT render pipeline state.
+      V('videoTitle').value=title;
+      V('downloadName').value=(typeof safeFileName==='function'?safeFileName(title):title.replace(/[^\w\-]+/g,'_')+'.mp4');
+      V('script').value=script;
+      window.documentalVideoTitle=title;
+      window.documentalDownloadName=V('downloadName').value;
+      window.documentalFactoryAudioBlob=null;
+      window.documentalFactoryAudioMeta=null;
+      V('videoAIScript').value=script;
+      vBar(30);
+
+      await buildSceneCardsFromVideoPlan(plan,meta);
+      vBar(56);
+
+      vStatus('Generando narración con Alexander V…');
+      await window.ensureAlexanderReady?.();
+      await window.generateDocumentalVoice?.();
+      if(!window.documentalFactoryAudioBlob)throw new Error('Alexander terminó sin crear audio.');
+      vBar(66);
+
+      vStatus('Renderizando versión transformada…');
+      const ok=await window.createDocumentalFinalVideo?.();
+      if(ok!==true)throw new Error('FFmpeg no confirmó el render final.');
+
+      vBar(100);
+      vStatus(`✅ ${file.name} terminado y descargado.`,'ok');
+      queueRow(index,file,'Terminado y descargado','ok');
+      await sleepVideo(500);
+      return true;
+    }finally{
+      // The object URL must live until FFmpeg has fetched all original-video scenes.
+      if(meta?.video){try{meta.video.src='';meta.video.load();}catch(e){}}
+      if(currentVideoObjectUrl){
+        try{URL.revokeObjectURL(currentVideoObjectUrl);}catch(e){}
+        currentVideoObjectUrl=null;
+      }
+    }
+  }
+
+  async function processVideoQueue(files){
+    if(videoAIRunning)return;
+    videoAIRunning=true;
+    currentVideoFiles=files;
+    const inp=V('videoFilesAI');
+    const retry=V('videoAIRetry');
+    if(inp)inp.disabled=true;
+    if(retry)retry.disabled=true;
+    V('videoAIQueue').innerHTML='';
+    files.forEach((f,i)=>queueRow(i,f));
+
+    try{
+      await window.documentalRequestWakeLock?.();
+      vStatus(`Cola preparada: ${files.length} video${files.length===1?'':'s'}. Preparando Alexander una sola vez…`);
+      await window.ensureAlexanderReady?.();
+
+      for(let i=0;i<files.length;i++){
+        try{
+          await processOneVideo(files[i],i,files.length);
+        }catch(err){
+          console.error(err);
+          const msg=err?.message||String(err);
+          queueRow(i,files[i],msg,'err');
+          vStatus(`⚠️ ${files[i].name} falló: ${msg}. Continuando…`,'err');
+          await sleepVideo(700);
+        }
+      }
+      const failed=[...V('videoAIQueue').querySelectorAll('.videoQueueItem.err')].length;
+      vStatus(`✅ Cola terminada: ${files.length-failed}/${files.length} videos creados${failed?` · ${failed} con error`:''}.`,failed?'err':'ok');
+    }finally{
+      videoAIRunning=false;
+      await window.documentalReleaseWakeLock?.();
+      if(inp){inp.disabled=false;inp.value='';}
+      if(retry)retry.disabled=currentVideoIndex<0;
+    }
+  }
+
+  V('videoFilesAI')?.addEventListener('change',async e=>{
+    const files=[...(e.target.files||[])];
+    if(!files.length)return;
+    if(files.length>6){
+      vStatus('❌ Selecciona máximo 6 videos por tanda.','err');
+      e.target.value='';
+      return;
+    }
+    switchTab('video');
+    await processVideoQueue(files);
+  });
+
+  V('videoAIRetry')?.addEventListener('click',async()=>{
+    if(videoAIRunning||!currentVideoFile)return;
+    videoAIRunning=true;
+    V('videoAIRetry').disabled=true;
+    try{
+      await window.documentalRequestWakeLock?.();
+      await processOneVideo(currentVideoFile,currentVideoIndex,Math.max(1,currentVideoFiles.length));
+    }catch(err){
+      vStatus('❌ '+(err?.message||err),'err');
+    }finally{
+      videoAIRunning=false;
+      await window.documentalReleaseWakeLock?.();
+      V('videoAIRetry').disabled=false;
+    }
+  });
+})();
+</script>
+
 <script>
 window.addEventListener('DOMContentLoaded',()=>{
   const required=['txtFile','videoTitle','downloadName','script','duration','sceneCount',
     'groq','pexels','pixabay','scenes','titleOverlay','subtitles','musicVol',
-    'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar','queueStatus'];
+    'renderStatus','renderBar','finalPreview','autoCreate','autoStatus','autoBar','queueStatus',
+    'tabTxt','tabVideo','videoFilesAI','videoTargetDuration','videoAIStatus','videoAIQueue','videoAIScript'];
   const missing=required.filter(id=>!document.getElementById(id));
   if(missing.length){
     const s=document.getElementById('autoStatus');
