@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.0.4 No Scene Limit</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.2 Exact Duration + Clean Filename</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La IA analiza fotogramas del video, escribe un guion nuevo y la edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La IA analiza una línea de tiempo de 9 fotogramas con segundos reales, escribe un guion basado solo en acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -180,7 +180,7 @@
       <button class="pri" id="videoAIRetry" type="button" disabled>↻ REINTENTAR VIDEO ACTUAL</button>
     </div>
 
-    <p class="tiny">El análisis visual usa el mismo Groq API guardado en la pestaña TXT. Para visión se usa Qwen 3.6 y para estructurar el guion se usa GPT-OSS 20B. El resultado depende de lo que sea visible en los fotogramas seleccionados.</p>
+    <p class="tiny">El análisis visual usa 9 fotogramas cronológicos con sus segundos reales. Qwen 3.6 crea una línea de tiempo verificada y GPT-OSS 20B solo puede narrar hechos apoyados por esa línea de tiempo.</p>
   </section>
 </div>
 
@@ -1065,6 +1065,17 @@ async function getDefaultMusic(total){
 }
 
 
+
+function buildAtempoChain(factor){
+  let f=Number(factor);
+  if(!Number.isFinite(f) || f<=0)return 'atempo=1';
+  const parts=[];
+  while(f<0.5){parts.push('atempo=0.5');f/=0.5;}
+  while(f>2.0){parts.push('atempo=2.0');f/=2.0;}
+  parts.push(`atempo=${f.toFixed(6)}`);
+  return parts.join(',');
+}
+
 async function createFinalVideo(){
   const btn=R('#finalRender');
   if(btn?.disabled)return false;
@@ -1085,19 +1096,44 @@ async function createFinalVideo(){
     }
 
     let voiceBlob=window.documentalFactoryAudioBlob;
-    let total=window.documentalFactoryAudioMeta?.seconds||await blobDuration(voiceBlob);
-    if(!total||!isFinite(total)) throw new Error('No pude calcular la duración de la narración.');
+    const naturalTotal=window.documentalFactoryAudioMeta?.seconds||await blobDuration(voiceBlob);
+    if(!naturalTotal||!isFinite(naturalTotal)) throw new Error('No pude calcular la duración de la narración.');
 
-    rs('2/5 Preparando música documental…');
-    rb(10);
-    const musicInfo=await getDefaultMusic(total);
-    const musicBlob=musicInfo.blob;
+    const forced=Number(window.documentalForcedDurationSeconds||0);
+    let total=(forced>0 && Number.isFinite(forced))?forced:naturalTotal;
+
+    rs('2/5 Ajustando narración a la duración seleccionada…');
+    rb(8);
 
     rs('3/5 Cargando FFmpeg…');
     const ffmpeg=await loadFFmpeg();
-    rb(15);
+    rb(12);
 
     await ffmpeg.writeFile('voice.wav',new Uint8Array(await voiceBlob.arrayBuffer()));
+
+    if(forced>0 && Math.abs(naturalTotal-forced)>0.08){
+      // atempo factor = original duration / desired duration.
+      // Example: 170s -> 180s => 0.9444 (slightly slower, pitch preserved).
+      const tempoFactor=naturalTotal/forced;
+      const atempo=buildAtempoChain(tempoFactor);
+      rs(`2/5 Ajustando Alexander: ${naturalTotal.toFixed(1)} s → ${forced.toFixed(1)} s…`);
+      await ffmpeg.exec([
+        '-i','voice.wav',
+        '-filter:a',atempo,
+        '-ar','44100','-ac','1',
+        '-c:a','pcm_s16le',
+        '-t',forced.toFixed(3),
+        'voice_target.wav'
+      ]);
+      const fitted=await ffmpeg.readFile('voice_target.wav');
+      voiceBlob=new Blob([fitted.buffer],{type:'audio/wav'});
+      total=forced;
+    }
+
+    rs('2/5 Preparando música documental…');
+    rb(14);
+    const musicInfo=await getDefaultMusic(total);
+    const musicBlob=musicInfo.blob;
     await ffmpeg.writeFile(musicInfo.name,new Uint8Array(await musicBlob.arrayBuffer()));
 
     const durations=sceneDurations(total,sceneEls);
@@ -1278,9 +1314,9 @@ async function createFinalVideo(){
     a.remove();
 
     rb(100);
-    rs(`✅ Video terminado: 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
+    rs(`✅ Video terminado: ${total.toFixed(1)} s exactos, 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
 
-    await clean(ffmpeg,[...partNames,...chunkNames,'concat.txt','joined.mp4','voice.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
+    await clean(ffmpeg,[...partNames,...chunkNames,'concat.txt','joined.mp4','voice.wav','voice_target.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
     return true;
   }catch(err){
     console.error(err);
@@ -1784,12 +1820,15 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   function safeFileName(name){
     name=(name||'documental').trim()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g,'')
+      // Keep accents and spaces. Windows forbids the ASCII colon in filenames,
+      // so replace only that character with the visually equivalent fullwidth colon.
+      .replace(/:/g,'：')
+      .replace(/[<>"/\\|?*\x00-\x1F]/g,'')
       .replace(/\s+/g,' ').trim()
       .replace(/[. ]+$/g,'');
     return (name||'documental').slice(0,120)+'.mp4';
   }
+  window.documentalSafeFileName=safeFileName;
 
   function ast(text,cls='mut'){
     const el=A('#autoStatus');
@@ -2201,20 +2240,30 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   async function extractVisionFrames(meta){
     const video=meta.video;
-    const positions=[0.16,0.50,0.84];
+
+    // Nine chronological samples give the model an actual visual timeline instead
+    // of asking it to infer a whole story from only three images.
+    const count=9;
     const frames=[];
-    for(let i=0;i<positions.length;i++){
-      vStatus(`Analizando imagen ${i+1} de ${positions.length}…`);
-      await seekVideo(video,Math.max(0.1,meta.duration*positions[i]));
-      const maxW=480;
-      const ratio=(video.videoHeight||1280)/(video.videoWidth||720);
+    for(let i=0;i<count;i++){
+      const ratio=(i+0.5)/count;
+      const time=Math.max(0.1,Math.min(meta.duration-0.1,meta.duration*ratio));
+      vStatus(`Analizando imagen ${i+1} de ${count} · ${time.toFixed(1)} s…`);
+      await seekVideo(video,time);
+
+      const maxW=420;
+      const aspect=(video.videoHeight||1280)/(video.videoWidth||720);
       const w=Math.min(maxW,video.videoWidth||maxW);
-      const h=Math.max(180,Math.round(w*ratio));
+      const h=Math.max(180,Math.round(w*aspect));
       const canvas=document.createElement('canvas');
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');
       ctx.drawImage(video,0,0,w,h);
-      frames.push(canvas.toDataURL('image/jpeg',0.68));
+
+      frames.push({
+        time,
+        image:canvas.toDataURL('image/jpeg',0.62)
+      });
     }
     return frames;
   }
@@ -2225,9 +2274,43 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
     const content=[{
       type:'text',
-      text:`Analiza estos 3 fotogramas extraídos del mismo video. Nombre del archivo: "${fileName}". Duración original: ${meta.duration.toFixed(1)} s. Describe SOLO lo que se puede sostener visualmente. Identifica sujeto principal, entorno, acciones visibles, proceso o transformación, objetos importantes, cambios entre fotogramas y qué tipo de historia puede narrarse sin inventar datos específicos. Devuelve JSON válido con: {"subject":"...","environment":"...","visible_actions":["..."],"visual_story":"...","safe_context":"..."}. Responde en español.`
+      text:`Estos son 9 fotogramas CRONOLÓGICOS del mismo video. Cada imagen incluye su segundo real.
+Tu trabajo NO es inventar una historia completa: debes construir una línea de tiempo visual fiel.
+
+ARCHIVO: "${fileName}"
+DURACIÓN ORIGINAL: ${meta.duration.toFixed(1)} s
+
+Devuelve JSON válido:
+{
+  "subject":"...",
+  "environment":"...",
+  "timeline":[
+    {"frame":1,"time":3.2,"visible":"solo lo realmente visible","action":"acción visible breve"},
+    ...
+  ],
+  "verified_summary":"resumen basado únicamente en lo visible",
+  "unknowns":["cosas que NO pueden confirmarse visualmente"]
+}
+
+REGLAS OBLIGATORIAS:
+- Describe SOLO lo que realmente se ve.
+- NO inventes tratamientos médicos, medicamentos, inyecciones, diagnósticos, dietas, fechas, lugares, familiares, adopciones, jaulas, snacks, revisiones, despedidas, fotografías, pensamientos o emociones si no son claramente visibles.
+- Puedes decir "una persona" si no sabes si es veterinario, dueño o rescatista.
+- Si algo parece probable pero no puede confirmarse, colócalo en "unknowns", NO en la línea de tiempo.
+- Mantén el orden cronológico.
+- Responde en español.`
     }];
-    frames.forEach(img=>content.push({type:'image_url',image_url:{url:img}}));
+
+    frames.forEach((f,i)=>{
+      content.push({
+        type:'text',
+        text:`FOTOGRAMA ${i+1} — segundo ${f.time.toFixed(1)}`
+      });
+      content.push({
+        type:'image_url',
+        image_url:{url:f.image}
+      });
+    });
 
     const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
@@ -2235,21 +2318,27 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       body:JSON.stringify({
         model:'qwen/qwen3.6-27b',
         messages:[{role:'user',content}],
-        temperature:0.2,
-        max_tokens:900,
+        temperature:0.1,
+        max_tokens:1700,
         response_format:{type:'json_object'}
       })
     });
     const raw=await r.text();
-    if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,300)}`);
+    if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,500)}`);
     const data=JSON.parse(raw);
     const txt=data?.choices?.[0]?.message?.content||'';
-    try{return JSON.parse(txt);}
-    catch(e){throw new Error('Groq Vision respondió, pero el análisis no llegó como JSON válido.');}
+    try{
+      const parsed=JSON.parse(txt);
+      if(!Array.isArray(parsed.timeline) || !parsed.timeline.length){
+        throw new Error('sin timeline');
+      }
+      return parsed;
+    }catch(e){
+      throw new Error('Groq Vision respondió, pero no creó una línea de tiempo válida.');
+    }
   }
-
   function targetSceneCount(seconds){return Math.max(12,Math.min(36,Math.round(seconds/5)));}
-  function targetWords(seconds){return Math.round(seconds*2.48);}
+  function targetWords(seconds){return Math.round(seconds*2.55);}
   function stockRatioFor(targetSeconds,sourceSeconds){
     const stretch=targetSeconds/Math.max(1,sourceSeconds);
     return Math.min(0.45,Math.max(0.30,0.30+Math.max(0,stretch-1)*0.055));
@@ -2322,55 +2411,63 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
   async function groqBuildVideoPlan(analysis,fileName,targetSeconds,style,sourceSeconds){
     const key=(V('groq')?.value||'').trim();
     if(!key)throw new Error('Falta Groq API.');
+
     const scenes=targetSceneCount(targetSeconds);
     const words=targetWords(targetSeconds);
     const stockRatio=stockRatioFor(targetSeconds,sourceSeconds);
     const stockCount=Math.max(1,Math.round(scenes*stockRatio));
 
-    const prompt=`Eres guionista y editor profesional de videos verticales. Debes crear una narración NUEVA basada en un video que ya fue analizado visualmente.
+    const timeline=Array.isArray(analysis.timeline)?analysis.timeline:[];
+    const verified=JSON.stringify({
+      subject:analysis.subject||'',
+      environment:analysis.environment||'',
+      timeline,
+      verified_summary:analysis.verified_summary||'',
+      unknowns:analysis.unknowns||[]
+    });
 
-ANÁLISIS VISUAL:
-${JSON.stringify(analysis)}
+    const prompt=`Eres guionista y editor profesional de videos verticales.
+Debes escribir una narración NUEVA pero VISUALMENTE FIEL al material analizado.
+
+HECHOS VISUALES VERIFICADOS:
+${verified}
 
 ARCHIVO: ${fileName}
-DURACIÓN ORIGINAL: ${sourceSeconds.toFixed(1)} segundos
-DURACIÓN FINAL DESEADA: ${targetSeconds} segundos
+DURACIÓN ORIGINAL: ${sourceSeconds.toFixed(1)} s
+DURACIÓN FINAL DESEADA: ${targetSeconds} s
 ESTILO: ${style}
-PALABRAS OBJETIVO: aproximadamente ${words}
+PALABRAS OBJETIVO: ${words} palabras. Mantente entre ${Math.round(words*0.97)} y ${Math.round(words*1.03)} palabras.
 ESCENAS OBJETIVO: ${scenes}
-CLIPS COMPLEMENTARIOS: aproximadamente ${stockCount} escenas de ${scenes}
+CLIPS COMPLEMENTARIOS APROX.: ${stockCount}
 
 Devuelve SOLO JSON válido:
 {
-  "title":"título corto y atractivo",
+  "title":"título fiel a lo visible",
   "scenes":[
     {
       "narration":"fragmento del guion",
       "source":"original",
-      "queries":["visual reference 1","visual reference 2","visual reference 3","visual reference 4","visual reference 5"]
-    },
-    {
-      "narration":"fragmento del guion",
-      "source":"stock",
-      "queries":["english search 1","english search 2","english search 3","english search 4","english search 5"]
+      "sourceTime":12.5,
+      "queries":["q1","q2","q3","q4","q5"]
     }
   ]
 }
 
-REGLAS:
-- Genera aproximadamente ${scenes} escenas. Si produces más o menos, está bien: el sistema las ajustará automáticamente después.
-- La suma de "narration" de todas las escenas ES el guion completo y debe acercarse a ${words} palabras.
-- Español natural, frases claras para voz TTS y buena retención.
-- No digas "en este video".
-- No inventes nombres, cifras, lugares, especies o hechos que el análisis visual no sostenga.
-- Si no se puede saber un dato concreto, narra lo visible, el proceso, la transformación, el esfuerzo, la curiosidad o el contexto de forma general.
-- "original" significa usar el video subido, pero con edición transformada.
-- Usa "stock" en alrededor de ${stockCount} escenas. Debe haber stock desde el primer tercio hasta el final, no todo agrupado.
-- Nunca pongas más de 2 escenas stock consecutivas.
-- Las escenas originales consecutivas deben narrar acciones o momentos distintos.
-- Para TODAS las escenas genera EXACTAMENTE 5 búsquedas EN INGLÉS, concretas y visuales. En escenas originales sirven como respaldo; en escenas stock se usan para buscar clips.
-- Las búsquedas stock deben mantener el sujeto/contexto correcto y evitar conceptos abstractos.
-- Cada fragmento de narración debe ser suficientemente corto para aproximadamente 4–6 segundos.`;
+REGLAS CRÍTICAS:
+- No inventes acontecimientos.
+- Cada escena "original" DEBE corresponder a un elemento de timeline y usar su "time" real en sourceTime.
+- sourceTime debe ser un número entre 0 y ${sourceSeconds.toFixed(1)}.
+- Si narras que una pata es atendida, sourceTime debe apuntar a un fotograma donde eso realmente aparece.
+- Si narras que el animal está relajado en casa, sourceTime debe apuntar al momento correspondiente.
+- NO agregues inyecciones, medicamentos, vendas, férulas, dietas, jaulas, snacks, revisiones, fotos familiares, despedidas ni otras acciones si NO aparecen en timeline.
+- Para alargar el video, amplía la narración con observaciones del proceso visible, contexto general no específico y transiciones; NO agregues eventos nuevos.
+- Reparte el texto entre las escenas para alcanzar el objetivo total de palabras. No hagas escenas de una sola frase demasiado corta.
+- Usa "stock" únicamente para contexto visual complementario que no contradiga el video.
+- Nunca uses stock para fingir que ocurrió una acción que no está verificada.
+- Para todas las escenas genera EXACTAMENTE 5 búsquedas EN INGLÉS.
+- Aproximadamente ${stockCount} escenas pueden ser stock, distribuidas a lo largo del video.
+- No más de 2 escenas stock consecutivas.
+- El título también debe evitar afirmar detalles no verificados.`;
 
     const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
@@ -2378,10 +2475,10 @@ REGLAS:
       body:JSON.stringify({
         model:'openai/gpt-oss-20b',
         messages:[
-          {role:'system',content:'Devuelve únicamente JSON válido. No uses markdown.'},
+          {role:'system',content:'Devuelve únicamente JSON válido y usa exclusivamente los hechos visuales verificados.'},
           {role:'user',content:prompt}
         ],
-        temperature:0.35,
+        temperature:0.18,
         reasoning_effort:'low',
         reasoning_format:'hidden',
         max_tokens:6500,
@@ -2403,6 +2500,7 @@ REGLAS:
                     properties:{
                       narration:{type:'string'},
                       source:{type:'string',enum:['original','stock']},
+                      sourceTime:{type:'number'},
                       queries:{
                         type:'array',
                         items:{type:'string'},
@@ -2410,7 +2508,7 @@ REGLAS:
                         maxItems:5
                       }
                     },
-                    required:['narration','source','queries']
+                    required:['narration','source','sourceTime','queries']
                   }
                 }
               },
@@ -2420,37 +2518,85 @@ REGLAS:
         }
       })
     });
+
     const raw=await r.text();
     if(!r.ok){
       let detail=raw.slice(0,500);
-      try{
-        const ej=JSON.parse(raw);
-        detail=ej?.error?.message||detail;
-      }catch(_){}
-      if(String(detail).includes('/scenes') && String(detail).includes('maxItems')){
-        throw new Error(`Groq guion ${r.status}: límite de escenas rechazado por la API. Actualiza a v7.0.4.`);
-      }
+      try{detail=JSON.parse(raw)?.error?.message||detail;}catch(_){}
       throw new Error(`Groq guion ${r.status}: ${detail}`);
     }
+
     const data=JSON.parse(raw);
     const txt=data?.choices?.[0]?.message?.content||'';
     let plan;
     try{plan=JSON.parse(txt);}catch(e){throw new Error('Groq no devolvió un plan JSON válido.');}
     if(!Array.isArray(plan.scenes) || !plan.scenes.length)throw new Error('La IA no devolvió escenas.');
 
-    // Groq can occasionally return one scene more/less than requested even with a strict prompt.
-    // We accept up to 40 in the schema and normalize locally to the exact requested count.
-    if(plan.scenes.length>120){
-      plan.scenes=plan.scenes.slice(0,120);
-    }
-    plan=normalizeVideoPlanScenes(plan,scenes);
+    // Normalize locally, but preserve verified sourceTime values.
+    if(plan.scenes.length>120)plan.scenes=plan.scenes.slice(0,120);
 
-    if(plan.scenes.length!==scenes){
-      throw new Error(`No pude normalizar las escenas: esperadas ${scenes}, obtenidas ${plan.scenes.length}.`);
+    plan.scenes=plan.scenes.map((s,i)=>({
+      narration:String(s?.narration||'').trim(),
+      source:String(s?.source||'original').toLowerCase()==='stock'?'stock':'original',
+      sourceTime:Math.max(0,Math.min(sourceSeconds,Number(s?.sourceTime)||0)),
+      queries:Array.isArray(s?.queries)?s.queries.filter(Boolean).map(String).slice(0,5):[]
+    }));
+
+    plan.scenes.forEach((s,i)=>{
+      while(s.queries.length<5){
+        const base=s.queries[0]||`documentary animal scene ${i+1}`;
+        s.queries.push(base);
+      }
+    });
+
+    // Normalize to the target scene count WITHOUT throwing away narration.
+    // If there are too many scenes, merge the closest adjacent pair.
+    while(plan.scenes.length>scenes && plan.scenes.length>1){
+      let best=0;
+      let bestScore=Infinity;
+      for(let i=0;i<plan.scenes.length-1;i++){
+        const a=plan.scenes[i], b=plan.scenes[i+1];
+        const score=(a.narration.length+b.narration.length)
+          + (a.source===b.source?0:1000);
+        if(score<bestScore){bestScore=score;best=i;}
+      }
+      const a=plan.scenes[best], b=plan.scenes[best+1];
+      const merged={
+        narration:[a.narration,b.narration].filter(Boolean).join(' ').trim(),
+        source:a.source===b.source?a.source:'original',
+        sourceTime:Math.min(
+          Number.isFinite(Number(a.sourceTime))?Number(a.sourceTime):0,
+          Number.isFinite(Number(b.sourceTime))?Number(b.sourceTime):0
+        ),
+        queries:[...(a.queries||[]),...(b.queries||[])].filter(Boolean).slice(0,5)
+      };
+      while(merged.queries.length<5){
+        merged.queries.push(merged.queries[0]||'documentary animal scene');
+      }
+      plan.scenes.splice(best,2,merged);
     }
+
+    // If there are too few scenes, split long narration without inventing events.
+    while(plan.scenes.length<scenes && plan.scenes.length){
+      let idx=0;
+      for(let i=1;i<plan.scenes.length;i++){
+        if(plan.scenes[i].narration.length>plan.scenes[idx].narration.length)idx=i;
+      }
+      const s=plan.scenes[idx];
+      const words2=s.narration.split(/\s+/).filter(Boolean);
+      if(words2.length>=8){
+        const mid=Math.max(4,Math.floor(words2.length/2));
+        const a={...s,narration:words2.slice(0,mid).join(' ')};
+        const b={...s,narration:words2.slice(mid).join(' ')};
+        plan.scenes.splice(idx,1,a,b);
+      }else{
+        plan.scenes.splice(idx+1,0,{...s});
+      }
+    }
+
+    plan.scenes=plan.scenes.slice(0,scenes);
     return plan;
   }
-
   function transformForScene(i){
     const zooms=[1.04,1.10,1.07,1.14,1.02,1.12,1.06,1.16];
     const speeds=[0.96,1.04,1.00,1.07,0.94,1.02,1.08,0.98];
@@ -2512,7 +2658,8 @@ REGLAS:
           provider='Video original transformado (fallback)';
           const t=transformForScene(i);
           Object.assign(art.dataset,{zoom:t.zoom,speed:t.speed,panX:t.panX,panY:t.panY});
-          art.dataset.start=originalStartForScene(originalIndex++,originalScenes.length,meta.duration);
+          art.dataset.start=Math.max(0,Math.min(meta.duration-0.2,Number(s.sourceTime)||0));
+          originalIndex++;
         }
       }else{
         art.dataset.clipUrl=meta.url;
@@ -2565,17 +2712,27 @@ REGLAS:
       vBar(16);
       vStatus('Groq Vision está entendiendo el contenido…');
       const analysis=await groqVisionAnalyze(frames,file.name,meta);
+      const timelineText=(analysis.timeline||[]).map(x=>
+        `${Number(x.time||0).toFixed(1)} s — ${x.visible||x.action||''}`
+      ).join('\n');
       V('videoAIAnalysis').textContent=[
         `Sujeto: ${analysis.subject||'No determinado'}`,
         `Entorno: ${analysis.environment||'No determinado'}`,
-        `Acciones: ${(analysis.visible_actions||[]).join(', ')}`,
         '',
-        analysis.visual_story||analysis.safe_context||''
+        'LÍNEA DE TIEMPO VERIFICADA:',
+        timelineText,
+        '',
+        `Resumen: ${analysis.verified_summary||''}`,
+        '',
+        `No confirmado: ${(analysis.unknowns||[]).join(', ')}`
       ].join('\n');
       vBar(24);
 
       const targetSeconds=Number(V('videoTargetDuration')?.value||60);
       const style=V('videoScriptStyle')?.value||'documental viral';
+
+      // Video mode guarantees the final MP4 duration selected by the user.
+      window.documentalForcedDurationSeconds=targetSeconds;
       vStatus(`Creando guion de aproximadamente ${targetSeconds} segundos…`);
 
       const plan=await groqBuildVideoPlan(analysis,file.name,targetSeconds,style,meta.duration);
@@ -2586,7 +2743,9 @@ REGLAS:
 
       // Reuse the proven TXT render pipeline state.
       V('videoTitle').value=title;
-      V('downloadName').value=(typeof safeFileName==='function'?safeFileName(title):title.replace(/[^\w\-]+/g,'_')+'.mp4');
+      V('downloadName').value=(window.documentalSafeFileName
+        ? window.documentalSafeFileName(title)
+        : (title||'documental').replace(/:/g,'：').replace(/[<>"/\\|?*\x00-\x1F]/g,'').trim()+'.mp4');
       V('script').value=script;
 
       // Video → Guion IA always keeps the same title/subtitle system as TXT mode.
