@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.3 Vision Plaintext Parser</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3.5 Spanish Only</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona aproximadamente 10–18 fotogramas representativos con segundos reales y los analiza en bloques de 3. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona solamente 9–12 fotogramas de mayor información visual con segundos reales y los analiza en bloques de 3. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -180,7 +180,7 @@
       <button class="pri" id="videoAIRetry" type="button" disabled>↻ REINTENTAR VIDEO ACTUAL</button>
     </div>
 
-    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Los fotogramas elegidos se comprimen y procesan en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Si Groq aplica un límite temporal 429, la app espera automáticamente el tiempo indicado y reintenta. Vision ya no depende de JSON. Cada bloque devuelve líneas simples FRAME y UNKNOWN, que la app interpreta directamente. Si el modelo rompe el formato, GPT-OSS lo normaliza sin usar JSON. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
+    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Después de recorrer todo el video, la app conserva solo 9–12 fotogramas de mayor información visual y los procesa en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Si Groq aplica un límite temporal 429, la app espera automáticamente el tiempo indicado y reintenta. Vision ya no depende de JSON. Cada bloque devuelve líneas simples FRAME y UNKNOWN, que la app interpreta directamente. Si el modelo rompe el formato, GPT-OSS lo normaliza sin usar JSON. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
   </section>
 </div>
 
@@ -1158,7 +1158,16 @@ async function createFinalVideo(){
     const chunkNames=[];
     const CHUNK_SIZE=6;
 
-    async function compactCurrentParts(chunkIndex){
+  
+  function looksMostlyEnglish(text){
+    const s=String(text||'').toLowerCase();
+    if(!s.trim())return false;
+    const en=(s.match(/\b(the|and|with|this|that|from|into|after|before|while|family|fox|video|scene|story|rescue|injured|home|they|their|was|were|is|are)\b/g)||[]).length;
+    const es=(s.match(/\b(el|la|los|las|de|del|con|este|esta|que|una|un|familia|zorro|video|escena|historia|rescate|herido|casa|ellos|su|era|son)\b/g)||[]).length;
+    return en>=4 && en>es*1.5;
+  }
+
+  async function compactCurrentParts(chunkIndex){
       if(!partNames.length)return;
       if(partNames.length===1){
         chunkNames.push(partNames[0]);
@@ -1799,6 +1808,9 @@ Devuelve SOLO JSON válido con esta forma:
 {"scenes":[{"narration":"fragmento exacto del guion","query":"mejor búsqueda principal en inglés","queries":["búsqueda 1","búsqueda 2","búsqueda 3","búsqueda 4","búsqueda 5"]}]}.
 
 REGLAS OBLIGATORIAS:
+- IDIOMA OBLIGATORIO: ESPAÑOL NEUTRO. Nunca escribas el título, narración, subtítulos ni escenas en inglés, aunque el material original esté en inglés.
+- Traduce mentalmente cualquier contexto de entrada al español antes de redactar.
+
 - El array "scenes" debe contener exactamente ${n} objetos y cubrir TODO el guion en orden, sin saltarse frases.
 - Cada escena debe tener exactamente 5 búsquedas DIFERENTES en "queries".
 - "query" debe ser idéntica a la primera búsqueda de "queries".
@@ -2333,7 +2345,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
     // Choose a bounded number of representative frames.
     // We keep chronological coverage AND prioritize strong visual changes.
-    const target=Math.max(10,Math.min(18,Math.round(duration/6)+8));
+    const target=Math.max(9,Math.min(12,Math.round(duration/20)+8));
     const selected=new Set([0,samples.length-1]);
 
     // Uniform anchors guarantee that no long section of the video is ignored.
@@ -2623,11 +2635,8 @@ REGLAS:
 
       partials.push({timeline,unknowns});
 
-      // Small pause between vision calls to reduce burst pressure on the free-tier TPM limit.
-      if(b<batches.length-1){
-        vStatus(`Pausa breve para respetar límites de Groq…`);
-        await sleepMs(3500);
-      }
+      // No fixed delay here. If Groq actually reaches its temporary limit,
+      // groqFetchWith429Retry waits only for the exact retry window returned by Groq.
     }
 
     // Merge the three visual passes.
@@ -2676,7 +2685,7 @@ No inventes nada que no aparezca en la timeline.`;
         body:JSON.stringify({
           model:'openai/gpt-oss-20b',
           messages:[
-            {role:'system',content:'Devuelve únicamente JSON válido.'},
+            {role:'system',content:'Devuelve únicamente JSON válido. Todos los valores de texto destinados al título, narración, subtítulos, descripciones y escenas deben estar escritos en ESPAÑOL NEUTRO.'},
             {role:'user',content:summaryPrompt}
           ],
           temperature:0.1,
