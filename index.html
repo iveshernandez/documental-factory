@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.2.1 Fetch Fallback</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.3 Smart Full-Video Analysis</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La IA analiza una línea de tiempo de 9 fotogramas con segundos reales, escribe un guion basado solo en acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona aproximadamente 18–45 fotogramas representativos con segundos reales y los analiza en bloques de 3. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición transforma siempre el material original con recortes, zooms, reencuadres y cambios suaves de velocidad. También intercala clips complementarios de Pexels/Pixabay.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -180,7 +180,7 @@
       <button class="pri" id="videoAIRetry" type="button" disabled>↻ REINTENTAR VIDEO ACTUAL</button>
     </div>
 
-    <p class="tiny">El análisis visual usa 9 fotogramas cronológicos con sus segundos reales. Qwen 3.6 crea una línea de tiempo verificada y GPT-OSS 20B solo puede narrar hechos apoyados por esa línea de tiempo.</p>
+    <p class="tiny">El análisis visual recorre todo el video con una malla de hasta 72 puntos, prioriza cambios de escena y conserva cobertura cronológica. Los fotogramas elegidos se procesan en lotes de 3 porque Qwen admite máximo 3 imágenes por solicitud. Luego GPT-OSS consolida la línea de tiempo y crea el guion sin inventar hechos.</p>
   </section>
 </div>
 
@@ -2277,16 +2277,96 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
   async function extractVisionFrames(meta){
     const video=meta.video;
+    const duration=Math.max(1,Number(meta.duration)||1);
 
-    // Nine chronological samples give the model an actual visual timeline instead
-    // of asking it to infer a whole story from only three images.
-    const count=9;
-    const frames=[];
-    for(let i=0;i<count;i++){
-      const ratio=(i+0.5)/count;
-      const time=Math.max(0.1,Math.min(meta.duration-0.1,meta.duration*ratio));
-      vStatus(`Analizando imagen ${i+1} de ${count} · ${time.toFixed(1)} s…`);
+    // PASS 1: scan the WHOLE video on a lightweight grid.
+    // Short videos are sampled more densely; long videos remain bounded.
+    const scanCount=Math.max(18,Math.min(72,Math.ceil(duration/1.5)));
+    const samples=[];
+
+    function signatureFromCanvas(canvas){
+      // 12x12 luminance signature, enough to detect meaningful visual changes.
+      const sw=12, sh=12;
+      const tiny=document.createElement('canvas');
+      tiny.width=sw; tiny.height=sh;
+      const tctx=tiny.getContext('2d',{willReadFrequently:true});
+      tctx.drawImage(canvas,0,0,sw,sh);
+      const d=tctx.getImageData(0,0,sw,sh).data;
+      const sig=new Float32Array(sw*sh);
+      for(let i=0,j=0;i<d.length;i+=4,j++){
+        sig[j]=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])/255;
+      }
+      return sig;
+    }
+
+    function sigDiff(a,b){
+      if(!a||!b||a.length!==b.length)return 1;
+      let sum=0;
+      for(let i=0;i<a.length;i++)sum+=Math.abs(a[i]-b[i]);
+      return sum/a.length;
+    }
+
+    for(let i=0;i<scanCount;i++){
+      const ratio=scanCount===1?0.5:i/(scanCount-1);
+      const time=Math.max(0.08,Math.min(duration-0.08,duration*ratio));
+      vStatus(`Escaneando video completo ${i+1}/${scanCount} · ${time.toFixed(1)} s…`);
       await seekVideo(video,time);
+
+      const maxW=240;
+      const aspect=(video.videoHeight||1280)/(video.videoWidth||720);
+      const w=Math.min(maxW,video.videoWidth||maxW);
+      const h=Math.max(120,Math.round(w*aspect));
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(video,0,0,w,h);
+
+      samples.push({
+        time,
+        signature:signatureFromCanvas(canvas)
+      });
+    }
+
+    // PASS 2: score scene changes.
+    for(let i=0;i<samples.length;i++){
+      samples[i].change=i===0?1:sigDiff(samples[i-1].signature,samples[i].signature);
+    }
+
+    // Choose a bounded number of representative frames.
+    // We keep chronological coverage AND prioritize strong visual changes.
+    const target=Math.max(18,Math.min(45,Math.round(duration/3)+10));
+    const selected=new Set([0,samples.length-1]);
+
+    // Uniform anchors guarantee that no long section of the video is ignored.
+    const uniformCount=Math.max(8,Math.round(target*0.45));
+    for(let k=0;k<uniformCount;k++){
+      const idx=Math.round(k*(samples.length-1)/Math.max(1,uniformCount-1));
+      selected.add(idx);
+    }
+
+    // Fill remaining slots with the strongest scene changes.
+    const ranked=samples
+      .map((s,i)=>({i,score:s.change}))
+      .sort((a,b)=>b.score-a.score);
+
+    for(const r of ranked){
+      if(selected.size>=target)break;
+      // Avoid selecting almost-identical neighboring samples unless necessary.
+      const tooClose=[...selected].some(x=>Math.abs(x-r.i)<2);
+      if(!tooClose)selected.add(r.i);
+    }
+    for(const r of ranked){
+      if(selected.size>=target)break;
+      selected.add(r.i);
+    }
+
+    const indices=[...selected].sort((a,b)=>a-b);
+    const frames=[];
+
+    // PASS 3: recapture selected frames at higher quality for Groq Vision.
+    for(let j=0;j<indices.length;j++){
+      const s=samples[indices[j]];
+      vStatus(`Preparando fotograma inteligente ${j+1}/${indices.length} · ${s.time.toFixed(1)} s…`);
+      await seekVideo(video,s.time);
 
       const maxW=420;
       const aspect=(video.videoHeight||1280)/(video.videoWidth||720);
@@ -2294,85 +2374,161 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       const h=Math.max(180,Math.round(w*aspect));
       const canvas=document.createElement('canvas');
       canvas.width=w;canvas.height=h;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(video,0,0,w,h);
+      canvas.getContext('2d').drawImage(video,0,0,w,h);
 
       frames.push({
-        time,
-        image:canvas.toDataURL('image/jpeg',0.62)
+        time:s.time,
+        image:canvas.toDataURL('image/jpeg',0.62),
+        change:s.change
       });
     }
+
+    vStatus(`✅ Video completo escaneado: ${scanCount} puntos · ${frames.length} fotogramas seleccionados.`);
     return frames;
   }
-
   async function groqVisionAnalyze(frames,fileName,meta){
     const key=(V('groq')?.value||'').trim();
     if(!key)throw new Error('Falta Groq API. Guárdala primero en la pestaña TXT.');
 
-    const content=[{
-      type:'text',
-      text:`Estos son 9 fotogramas CRONOLÓGICOS del mismo video. Cada imagen incluye su segundo real.
-Tu trabajo NO es inventar una historia completa: debes construir una línea de tiempo visual fiel.
+    // Groq Qwen vision accepts max 3 images per request.
+    // Analyze all intelligently selected chronological frames in batches of 3, then merge them.
+    const batches=[];
+    for(let i=0;i<frames.length;i+=3)batches.push(frames.slice(i,i+3));
+
+    const partials=[];
+
+    for(let b=0;b<batches.length;b++){
+      const group=batches[b];
+      vStatus(`Groq Vision: analizando bloque ${b+1} de ${batches.length}…`);
+
+      const content=[{
+        type:'text',
+        text:`Estos fotogramas pertenecen al MISMO video. Forman parte de un análisis que recorrió el video completo y están en orden cronológico.
+Analiza SOLO lo que realmente aparece en estas imágenes.
 
 ARCHIVO: "${fileName}"
 DURACIÓN ORIGINAL: ${meta.duration.toFixed(1)} s
+BLOQUE: ${b+1} de ${batches.length}
 
 Devuelve JSON válido:
 {
-  "subject":"...",
-  "environment":"...",
   "timeline":[
-    {"frame":1,"time":3.2,"visible":"solo lo realmente visible","action":"acción visible breve"},
-    ...
+    {"frame":1,"time":3.2,"visible":"solo lo realmente visible","action":"acción visible breve"}
   ],
-  "verified_summary":"resumen basado únicamente en lo visible",
-  "unknowns":["cosas que NO pueden confirmarse visualmente"]
+  "unknowns":["cosas que no pueden confirmarse"]
 }
 
-REGLAS OBLIGATORIAS:
-- Describe SOLO lo que realmente se ve.
-- NO inventes tratamientos médicos, medicamentos, inyecciones, diagnósticos, dietas, fechas, lugares, familiares, adopciones, jaulas, snacks, revisiones, despedidas, fotografías, pensamientos o emociones si no son claramente visibles.
-- Puedes decir "una persona" si no sabes si es veterinario, dueño o rescatista.
-- Si algo parece probable pero no puede confirmarse, colócalo en "unknowns", NO en la línea de tiempo.
-- Mantén el orden cronológico.
+REGLAS:
+- No inventes medicamentos, diagnósticos, familiares, lugares, tratamientos, fechas ni emociones.
+- Si no sabes si alguien es veterinario, dueño o rescatista, di "una persona".
+- Mantén el orden de los fotogramas.
 - Responde en español.`
-    }];
+      }];
 
-    frames.forEach((f,i)=>{
-      content.push({
-        type:'text',
-        text:`FOTOGRAMA ${i+1} — segundo ${f.time.toFixed(1)}`
+      group.forEach((f,j)=>{
+        const globalIndex=b*3+j+1;
+        content.push({
+          type:'text',
+          text:`FOTOGRAMA ${globalIndex} — segundo ${f.time.toFixed(1)}`
+        });
+        content.push({
+          type:'image_url',
+          image_url:{url:f.image}
+        });
       });
-      content.push({
-        type:'image_url',
-        image_url:{url:f.image}
-      });
-    });
 
-    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({
+          model:'qwen/qwen3.6-27b',
+          messages:[{role:'user',content}],
+          temperature:0.1,
+          max_tokens:900,
+          response_format:{type:'json_object'}
+        })
+      });
+
+      const raw=await r.text();
+      if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,500)}`);
+
+      const data=JSON.parse(raw);
+      const txt=data?.choices?.[0]?.message?.content||'';
+      let parsed;
+      try{parsed=JSON.parse(txt);}
+      catch(e){throw new Error(`Groq Vision bloque ${b+1} respondió JSON inválido.`);}
+
+      partials.push(parsed);
+    }
+
+    // Merge the three visual passes.
+    const mergedTimeline=partials
+      .flatMap(p=>Array.isArray(p.timeline)?p.timeline:[])
+      .filter(Boolean)
+      .sort((a,b)=>Number(a.time||0)-Number(b.time||0));
+
+    const mergedUnknowns=[...new Set(
+      partials.flatMap(p=>Array.isArray(p.unknowns)?p.unknowns:[])
+        .filter(Boolean)
+        .map(String)
+    )];
+
+    if(!mergedTimeline.length){
+      throw new Error('Groq Vision no pudo construir la línea de tiempo.');
+    }
+
+    // One final TEXT-ONLY pass summarizes the already-verified timeline.
+    // No images here, so there is no 3-image limit.
+    vStatus('Groq Vision: consolidando línea de tiempo…');
+
+    const summaryPrompt=`Resume esta línea de tiempo visual SIN agregar hechos nuevos.
+
+ARCHIVO: "${fileName}"
+TIMELINE VERIFICADA:
+${JSON.stringify(mergedTimeline)}
+
+NO CONFIRMADO:
+${JSON.stringify(mergedUnknowns)}
+
+Devuelve SOLO JSON válido:
+{
+  "subject":"sujeto principal",
+  "environment":"entorno general",
+  "verified_summary":"resumen estrictamente basado en lo visible"
+}
+
+No inventes nada que no aparezca en la timeline.`;
+
+    const sr=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
       body:JSON.stringify({
-        model:'qwen/qwen3.6-27b',
-        messages:[{role:'user',content}],
+        model:'openai/gpt-oss-20b',
+        messages:[
+          {role:'system',content:'Devuelve únicamente JSON válido.'},
+          {role:'user',content:summaryPrompt}
+        ],
         temperature:0.1,
-        max_tokens:1700,
+        max_tokens:700,
         response_format:{type:'json_object'}
       })
     });
-    const raw=await r.text();
-    if(!r.ok)throw new Error(`Groq Vision ${r.status}: ${raw.slice(0,500)}`);
-    const data=JSON.parse(raw);
-    const txt=data?.choices?.[0]?.message?.content||'';
-    try{
-      const parsed=JSON.parse(txt);
-      if(!Array.isArray(parsed.timeline) || !parsed.timeline.length){
-        throw new Error('sin timeline');
-      }
-      return parsed;
-    }catch(e){
-      throw new Error('Groq Vision respondió, pero no creó una línea de tiempo válida.');
-    }
+
+    const sraw=await sr.text();
+    if(!sr.ok)throw new Error(`Groq resumen ${sr.status}: ${sraw.slice(0,500)}`);
+
+    const sdata=JSON.parse(sraw);
+    const stxt=sdata?.choices?.[0]?.message?.content||'';
+    let summary={};
+    try{summary=JSON.parse(stxt);}catch(e){}
+
+    return {
+      subject:summary.subject||'No determinado',
+      environment:summary.environment||'No determinado',
+      timeline:mergedTimeline,
+      verified_summary:summary.verified_summary||'',
+      unknowns:mergedUnknowns
+    };
   }
   function targetSceneCount(seconds){return Math.max(12,Math.min(36,Math.round(seconds/5)));}
   function targetWords(seconds){return Math.round(seconds*2.55);}
