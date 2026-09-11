@@ -16,7 +16,7 @@
 .videoScript{min-height:300px}
 @media(max-width:700px){.videoQueueItem{grid-template-columns:36px 1fr}.videoQueueItem>span:last-child{grid-column:2}}
 </style></head><body>
-<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.5.1 Approx Natural Duration</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
+<div style="position:fixed;bottom:6px;right:8px;z-index:9999;font-size:10px;opacity:.45">Build: Documental Factory v7.7 Groq Vision Fast</div><div class="w"><h1>Documental Factory</h1><div class="mut">Crea documentales desde .TXT o transforma videos en una versión narrada y editada con IA.</div>
 <div class="tabs">
   <button class="tabBtn active" id="tabBtnTxt" type="button">📄 TXT → Documental</button>
   <button class="tabBtn" id="tabBtnVideo" type="button">🎞️ Video → Guion IA</button>
@@ -122,7 +122,7 @@
 <div id="tabVideo" class="tabPanel">
   <section class="card">
     <h2>Video → Guion IA</h2>
-    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo, detecta cambios visuales, selecciona solamente 9–12 fotogramas de mayor información visual con segundos reales y los analiza en bloques de 3. La duración elegida se usa como objetivo aproximado para calcular el tamaño del guion. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
+    <p class="tiny">Sube hasta 6 videos. Se procesan en cola, uno por uno. La app recorre el video completo localmente, detecta cambios visuales y envía solo 3 fotogramas clave con segundos reales a Groq Vision en una sola petición. Así evitamos casi por completo las esperas de límite temporal sin bajar la calidad final del MP4. La duración elegida se usa como objetivo aproximado para calcular el tamaño del guion. Alexander V siempre habla a velocidad natural y la duración final del video sigue la duración real de esa narración, aunque quede un poco por debajo o por encima. Después crea el guion solo con acciones verificadas y sincroniza cada escena original con el momento correspondiente. La edición prioriza el material original en el segundo exacto que corresponde a la narración, aplicando recortes, zooms, reencuadres y cambios suaves de velocidad. Pexels/Pixabay se usa solo como complemento ocasional.</p>
 
     <label>Videos originales</label>
     <input id="videoFilesAI" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" multiple>
@@ -1139,7 +1139,7 @@ async function createFinalVideo(){
     const durations=sceneDurations(total,sceneEls);
     const partNames=[];
     const chunkNames=[];
-    const CHUNK_SIZE=6;
+    const CHUNK_SIZE=8;
 
   
   function looksMostlyEnglish(text){
@@ -1169,38 +1169,110 @@ async function createFinalVideo(){
       await sleep(30);
     }
 
-    // Process ONE scene at a time and compact every 6 scenes for long videos.
+
+    // v7.6 FAST PATH:
+    // Cache every unique video source once inside FFmpeg's virtual FS.
+    // This is especially important for the uploaded original video, which may be reused
+    // by dozens of scenes. Previous versions fetched + copied the full source once PER scene.
+    const sourceFileCache=new Map();
+    const sourceFilesToClean=[];
+
+    async function getCachedSourceFile(url,fallbackUrl=null){
+      const primary=String(url||'');
+      if(sourceFileCache.has(primary))return sourceFileCache.get(primary);
+
+      let blob=null, finalUrl=primary, usedFallback=false;
+      try{
+        blob=await fetchBlob(primary,{attempts:3});
+      }catch(err){
+        if(!fallbackUrl)throw err;
+        finalUrl=String(fallbackUrl);
+        usedFallback=true;
+        if(sourceFileCache.has(finalUrl)){
+          const cached=sourceFileCache.get(finalUrl);
+          sourceFileCache.set(primary,{...cached,usedFallback:true});
+          return sourceFileCache.get(primary);
+        }
+        blob=await fetchBlob(finalUrl,{attempts:2});
+      }
+
+      const ext=(blob?.type||'').includes('webm')?'webm':'mp4';
+      const name=`src_cache_${sourceFilesToClean.length}.${ext}`;
+      await ffmpeg.writeFile(name,new Uint8Array(await blob.arrayBuffer()));
+      const info={name,usedFallback,finalUrl};
+      sourceFileCache.set(finalUrl,info);
+      sourceFileCache.set(primary,info);
+      sourceFilesToClean.push(name);
+      return info;
+    }
+
+    // Preload all unique sources with a small concurrency pool.
+    // Network/download time overlaps, while FFmpeg encoding remains sequential and stable.
+    const preloadJobs=[];
+    const uniquePairs=[];
+    const pairSeen=new Set();
+    for(const el of sceneEls){
+      const u=String(el.dataset.clipUrl||'');
+      const f=String(el.dataset.fallbackUrl||'');
+      const key=u+'|||'+f;
+      if(u && !pairSeen.has(key)){
+        pairSeen.add(key);
+        uniquePairs.push([u,f||null]);
+      }
+    }
+
+    async function preloadWorker(){
+      while(uniquePairs.length){
+        const pair=uniquePairs.shift();
+        if(!pair)break;
+        try{await getCachedSourceFile(pair[0],pair[1]);}catch(e){
+          // Leave final handling to the scene loop so one bad stock clip never kills preload.
+          console.warn('[v7.6 preload]',e);
+        }
+      }
+    }
+    const preloadCount=Math.min(3,Math.max(1,uniquePairs.length));
+    for(let i=0;i<preloadCount;i++)preloadJobs.push(preloadWorker());
+    if(preloadJobs.length){
+      rs(`3/5 Precargando ${pairSeen.size} fuente${pairSeen.size===1?'':'s'} una sola vez…`);
+      await Promise.all(preloadJobs);
+    }
+
+    // The title is identical across all scenes. Generate/write it ONCE.
+    let sharedTitleFile=null;
+    if(R('#titleOverlay')?.value!=='no'){
+      const titleBlob=await makeTitleOverlay(window.documentalVideoTitle||R('#videoTitle')?.value||'');
+      sharedTitleFile='title_shared.png';
+      await ffmpeg.writeFile(sharedTitleFile,new Uint8Array(await titleBlob.arrayBuffer()));
+    }
+
+    // Process ONE scene at a time. Sources/title are already cached once.
     for(let i=0;i<sceneEls.length;i++){
       const el=sceneEls[i];
       const input=`scene_${i}.mp4`;
       const output=`part_${i}.mp4`;
       partNames.push(output);
 
-      rs(`4/5 Renderizando escena ${i+1} de ${sceneEls.length}…`);
+      rs(`4/5 Render rápido · escena ${i+1} de ${sceneEls.length}…`);
       rb(15+Math.round((i/sceneEls.length)*60));
 
-      let clipBlob;
       let usedFallback=false;
-      try{
-        clipBlob=await fetchBlob(el.dataset.clipUrl,{attempts:3});
-      }catch(fetchErr){
-        const fallback=el.dataset.fallbackUrl;
-        if(!fallback)throw fetchErr;
+      const cachedSource=await getCachedSourceFile(
+        el.dataset.clipUrl,
+        el.dataset.fallbackUrl||null
+      );
+      usedFallback=!!cachedSource.usedFallback;
 
-        rs(`⚠️ Clip externo bloqueado en escena ${i+1}. Usando recorte transformado del video original…`);
-        clipBlob=await fetchBlob(fallback,{attempts:2});
-        usedFallback=true;
-
-        // Keep narration visually synchronized with the original-video timestamp.
+      if(usedFallback){
+        rs(`⚠️ Clip externo bloqueado en escena ${i+1}. Usando video original ya precargado…`);
         el.dataset.start=el.dataset.fallbackStart||el.dataset.start||'0';
-
         const q=el.querySelector('.q');
         if(q)q.textContent='✂️ Fallback automático: video original transformado';
         const p=el.querySelector('.provider');
         if(p)p.textContent='Fuente: video original transformado';
       }
 
-      await ffmpeg.writeFile(input,new Uint8Array(await clipBlob.arrayBuffer()));
+      const cachedInput=cachedSource.name;
 
       const durNum=Math.max(1.0,durations[i]);
       const dur=durNum.toFixed(3);
@@ -1209,11 +1281,8 @@ async function createFinalVideo(){
       const overlayFiles=[];
       const overlaySpecs=[];
 
-      if(R('#titleOverlay')?.value!=='no'){
-        const titleBlob=await makeTitleOverlay(window.documentalVideoTitle||R('#videoTitle')?.value||'');
-        const f=`title_${i}.png`;
-        await ffmpeg.writeFile(f,new Uint8Array(await titleBlob.arrayBuffer()));
-        overlayFiles.push(f); overlayInputs.push('-i',f);
+      if(sharedTitleFile){
+        overlayInputs.push('-i',sharedTitleFile);
         overlaySpecs.push({fileIndex:1,start:0,end:durNum});
       }
 
@@ -1247,7 +1316,7 @@ async function createFinalVideo(){
 
       const args=['-stream_loop','-1'];
       if(startOffset>0)args.push('-ss',startOffset.toFixed(3));
-      args.push('-i',input,...overlayInputs,'-t',dur);
+      args.push('-i',cachedInput,...overlayInputs,'-t',dur);
       if(overlaySpecs.length){
         args.push('-filter_complex',filters.join(';'),'-map',`[${prev}]`);
       }else{
@@ -1257,7 +1326,6 @@ async function createFinalVideo(){
 
       await ffmpeg.exec(args);
 
-      try{await ffmpeg.deleteFile(input);}catch(e){}
       for(const f of overlayFiles){try{await ffmpeg.deleteFile(f);}catch(e){}}
       await sleep(20);
 
@@ -1345,7 +1413,7 @@ async function createFinalVideo(){
     rb(100);
     rs(`✅ Video terminado: ${total.toFixed(1)} s exactos, 720×1280, 30 FPS, título, subtítulos, voz nivelada y música documental al 30%. Descarga iniciada. Liberando memoria…`, 'ok');
 
-    await clean(ffmpeg,[...partNames,...chunkNames,'concat.txt','joined.mp4','voice.wav','voice_target.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4']);
+    await clean(ffmpeg,[...partNames,...chunkNames,...sourceFilesToClean,sharedTitleFile,'concat.txt','joined.mp4','voice.wav','voice_target.wav',musicInfo.name,'mixed_browser.wav','final_audio_check.wav','documental_final.mp4'].filter(Boolean));
     return true;
   }catch(err){
     console.error(err);
@@ -2328,11 +2396,11 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
     // Choose a bounded number of representative frames.
     // We keep chronological coverage AND prioritize strong visual changes.
-    const target=Math.max(9,Math.min(12,Math.round(duration/20)+8));
+    const target=3;
     const selected=new Set([0,samples.length-1]);
 
     // Uniform anchors guarantee that no long section of the video is ignored.
-    const uniformCount=Math.max(8,Math.round(target*0.45));
+    const uniformCount=3;
     for(let k=0;k<uniformCount;k++){
       const idx=Math.round(k*(samples.length-1)/Math.max(1,uniformCount-1));
       selected.add(idx);
@@ -2363,7 +2431,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
       vStatus(`Preparando fotograma inteligente ${j+1}/${indices.length} · ${s.time.toFixed(1)} s…`);
       await seekVideo(video,s.time);
 
-      const maxW=240;
+      const maxW=320;
       const aspect=(video.videoHeight||1280)/(video.videoWidth||720);
       const w=Math.min(maxW,video.videoWidth||maxW);
       const h=Math.max(180,Math.round(w*aspect));
@@ -2373,12 +2441,12 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
 
       frames.push({
         time:s.time,
-        image:canvas.toDataURL('image/jpeg',0.50),
+        image:canvas.toDataURL('image/jpeg',0.58),
         change:s.change
       });
     }
 
-    vStatus(`✅ Video completo escaneado: ${scanCount} puntos · ${frames.length} fotogramas seleccionados.`);
+    vStatus(`✅ Video completo escaneado: ${scanCount} puntos · 3 fotogramas clave para Groq Vision.`);
     return frames;
   }
   function sleepMs(ms){return new Promise(r=>setTimeout(r,ms));}
@@ -2456,7 +2524,7 @@ if($('#demo')) $('#demo').onclick=()=>{$('#script').value='En las aguas heladas 
     if(!key)throw new Error('Falta Groq API. Guárdala primero en la pestaña TXT.');
 
     // Groq Qwen vision accepts max 3 images per request.
-    // Analyze all intelligently selected chronological frames in batches of 3, then merge them.
+    // Analyze the 3 most useful chronological keyframes in ONE request. The whole video was already scanned locally.
     const batches=[];
     for(let i=0;i<frames.length;i+=3)batches.push(frames.slice(i,i+3));
 
@@ -2511,8 +2579,9 @@ REGLAS:
           body:JSON.stringify({
             model:'qwen/qwen3.6-27b',
             messages:[{role:'user',content}],
+            reasoning_effort:'none',
             temperature:0.1,
-            max_tokens:650
+            max_tokens:420
           })
         },
         `Groq Vision bloque ${b+1}/${batches.length}`,
